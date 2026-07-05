@@ -221,6 +221,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          accepted_at: string | null
           assigned_team_id: string
           claimed_by: string | null
           completed_at: string | null
@@ -229,6 +230,8 @@ export type Database = {
           deadline: string | null
           description: string | null
           id: string
+          rejected_at: string | null
+          rejected_by: string | null
           remarks: string | null
           status: string
           title: string
@@ -236,6 +239,7 @@ export type Database = {
           started_by: string | null
         }
         Insert: {
+          accepted_at?: string | null
           assigned_team_id: string
           claimed_by?: string | null
           completed_at?: string | null
@@ -244,6 +248,8 @@ export type Database = {
           deadline?: string | null
           description?: string | null
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
           remarks?: string | null
           status?: string
           title: string
@@ -251,6 +257,7 @@ export type Database = {
           started_by?: string | null
         }
         Update: {
+          accepted_at?: string | null
           assigned_team_id?: string
           claimed_by?: string | null
           completed_at?: string | null
@@ -259,6 +266,8 @@ export type Database = {
           deadline?: string | null
           description?: string | null
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
           remarks?: string | null
           status?: string
           title?: string
@@ -283,6 +292,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_rejected_by_fkey"
+            columns: ["rejected_by"]
             isOneToOne: false
             referencedRelation: "members"
             referencedColumns: ["id"]

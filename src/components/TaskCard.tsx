@@ -13,22 +13,32 @@ interface TaskCardProps {
   startedByName?: string | null;
   completedAt?: string | null;
   assigneeNames?: string[];
+  acceptedAt?: string | null;
+  acceptedByName?: string | null;
+  rejectedBy?: string | null;
+  rejectedByName?: string | null;
+  rejectedAt?: string | null;
+  createdAt?: string | null;
   onOpen?: () => void;
+  onReassign?: () => void;
+  actionButtons?: React.ReactNode;
 }
 
 const statusColors: Record<string, string> = {
   pending: "#F59E0B",
   in_progress: "#3B82F6",
   done: "#10B981",
+  rejected: "#EF4444",
 };
 
 const statusLabels: Record<string, string> = {
-  pending: "Pending",
+  pending: "Waiting for acceptance",
   in_progress: "In Progress",
   done: "Done",
+  rejected: "Rejected",
 };
 
-export default function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, onOpen }: TaskCardProps) {
+export default function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, acceptedAt, acceptedByName, rejectedBy, rejectedByName, rejectedAt, createdAt, onOpen, onReassign, actionButtons }: TaskCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
   const openDetail = () => {
@@ -52,6 +62,12 @@ export default function TaskCard({ title, description, status, teamName, remarks
         )}
       </TouchableOpacity>
 
+      {actionButtons && (
+        <View style={styles.actionsRow}>
+          {actionButtons}
+        </View>
+      )}
+
       <Modal visible={showDetail} transparent animationType="fade" onRequestClose={() => setShowDetail(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowDetail(false)}>
           <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailCenter}>
@@ -62,14 +78,21 @@ export default function TaskCard({ title, description, status, teamName, remarks
               </View>
               <Text style={styles.detailTeam}>{teamName}</Text>
               {createdByName && <Text style={styles.detailCreatedBy}>Assigned by {createdByName}</Text>}
+              {createdAt && (
+                <Text style={styles.detailDate}>Assigned {new Date(createdAt).toLocaleDateString()} {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+              )}
               {deadline && (
                 <Text style={styles.detailDeadline}>Deadline: {new Date(deadline).toLocaleDateString()} {new Date(deadline).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
               )}
               {completedAt ? <Text style={styles.detailCompleted}>Completed {new Date(completedAt).toLocaleDateString()} {new Date(completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
               {assigneeNames && assigneeNames.length > 0 ? <Text style={styles.detailAssignees}>Assigned to: {assigneeNames.join(", ")}</Text> : null}
               {claimedByName ? <Text style={styles.detailClaimed}>Claimed by {claimedByName}</Text> : null}
+              {acceptedAt ? <Text style={styles.detailDate}>Accepted {new Date(acceptedAt).toLocaleDateString()} {new Date(acceptedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
+              {acceptedByName ? <Text style={styles.detailClaimed}>Accepted by {acceptedByName}</Text> : null}
               {startedByName && status !== "done" ? <Text style={styles.detailWorking}>Working on it: {startedByName}</Text> : null}
               {startedByName && status === "done" ? <Text style={styles.detailWorked}>Worked on by {startedByName}</Text> : null}
+              {rejectedByName ? <Text style={styles.detailRejected}>Rejected by {rejectedByName}</Text> : null}
+              {rejectedAt ? <Text style={styles.detailDate}>Rejected {new Date(rejectedAt).toLocaleDateString()} {new Date(rejectedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
               {description ? <Text style={styles.detailSectionLabel}>Description</Text> : null}
               {description ? <Text style={styles.detailText}>{description}</Text> : null}
               {remarks ? <Text style={styles.detailSectionLabel}>Remarks</Text> : null}
@@ -77,6 +100,11 @@ export default function TaskCard({ title, description, status, teamName, remarks
               <TouchableOpacity style={styles.closeBtn} onPress={() => setShowDetail(false)}>
                 <Text style={styles.closeBtnText}>Close</Text>
               </TouchableOpacity>
+              {status === "rejected" && onReassign && (
+                <TouchableOpacity style={styles.reassignBtn} onPress={() => { setShowDetail(false); onReassign(); }}>
+                  <Text style={styles.reassignBtnText}>Re-assign</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         </TouchableOpacity>
@@ -124,8 +152,13 @@ const styles = StyleSheet.create({
   detailWorked: { fontSize: 13, color: "#10B981", marginBottom: 8, fontWeight: "500" },
   detailDeadline: { fontSize: 13, color: "#DC2626", marginBottom: 12, fontStyle: "italic" },
   detailCreatedBy: { fontSize: 13, color: "#6B7280", marginBottom: 6, fontStyle: "italic" },
+  detailDate: { fontSize: 13, color: "#6B7280", marginBottom: 4, fontWeight: "500" },
+  detailRejected: { fontSize: 13, color: "#EF4444", marginBottom: 4, fontWeight: "500" },
   detailSectionLabel: { fontSize: 14, fontWeight: "600", color: "#374151", marginTop: 12, marginBottom: 4 },
   detailText: { fontSize: 15, color: "#4B5563", lineHeight: 22 },
   closeBtn: { marginTop: 20, alignItems: "center", paddingVertical: 10 },
   closeBtnText: { fontSize: 16, color: "#2563EB", fontWeight: "600" },
+  reassignBtn: { marginTop: 8, alignItems: "center", paddingVertical: 12, backgroundColor: "#F59E0B", borderRadius: 10 },
+  reassignBtnText: { fontSize: 16, color: "#fff", fontWeight: "700" },
+  actionsRow: { flexDirection: "row", gap: 10, marginTop: 0, paddingHorizontal: 16, paddingBottom: 10 },
 });

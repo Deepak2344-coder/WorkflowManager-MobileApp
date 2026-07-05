@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, FlatList } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/Button";
+import TaskCard from "../components/TaskCard";
 
 interface Member {
   member_id: string;
@@ -11,6 +12,25 @@ interface Member {
     full_name: string;
     email: string;
   } | null;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_by: string;
+  claimed_by: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  deadline: string | null;
+  remarks: string | null;
+  accepted_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  created_by_member?: { full_name: string } | null;
+  claimed_by_member?: { full_name: string } | null;
+  rejected_by_member?: { full_name: string } | null;
 }
 
 interface RouteParams {
@@ -29,6 +49,8 @@ export default function TeamDetailScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
 
   const fetchMembers = async () => {
     setLoadingMembers(true);
@@ -40,7 +62,38 @@ export default function TeamDetailScreen() {
     setLoadingMembers(false);
   };
 
-  useEffect(() => { fetchMembers(); }, [teamId]);
+  const fetchTasks = useCallback(async () => {
+    setTasksLoading(true);
+    const { data } = await supabase
+      .from("tasks")
+      .select("id, title, description, status, created_by, claimed_by, completed_at, created_at, deadline, remarks, accepted_at, rejected_by, rejected_at, created_by_member:members!created_by(full_name), claimed_by_member:members!claimed_by(full_name), rejected_by_member:members!rejected_by(full_name)")
+      .eq("assigned_team_id", teamId)
+      .order("created_at", { ascending: false });
+    setTasks((data ?? []) as Task[]);
+    setTasksLoading(false);
+  }, [teamId]);
+
+  useEffect(() => { fetchMembers(); fetchTasks(); }, [teamId, fetchTasks]);
+
+  const handleAcceptTask = async (taskId: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "in_progress", claimed_by: user.id, accepted_at: new Date().toISOString() })
+      .eq("id", taskId);
+    if (error) return Alert.alert("Error", error.message);
+    fetchTasks();
+  };
+
+  const handleRejectTask = async (taskId: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "rejected", rejected_by: user.id, rejected_at: new Date().toISOString() })
+      .eq("id", taskId);
+    if (error) return Alert.alert("Error", error.message);
+    fetchTasks();
+  };
 
   const handleLeaveTeam = async () => {
     Alert.alert("Leave Team", `Are you sure you want to leave "${teamName}"?`, [
@@ -94,10 +147,50 @@ export default function TeamDetailScreen() {
 
       <View style={styles.tabContent}>
         {activeTab === "tasks" ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No assigned tasks yet</Text>
-            <Text style={styles.emptySubtext}>Tasks assigned to this team will appear here</Text>
-          </View>
+          tasksLoading ? (
+            <ActivityIndicator style={styles.loading} size="large" />
+          ) : tasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No tasks assigned yet</Text>
+              <Text style={styles.emptySubtext}>Tasks assigned to this team will appear here</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={tasks}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TaskCard
+                  title={item.title}
+                  description={item.description}
+                  status={item.status}
+                  teamName={teamName}
+                  deadline={item.deadline}
+                  remarks={item.remarks}
+                  createdByName={item.created_by_member?.full_name}
+                  claimedByName={item.claimed_by_member?.full_name}
+                  completedAt={item.completed_at}
+                  createdAt={item.created_at}
+                  acceptedAt={item.accepted_at}
+                  rejectedBy={item.rejected_by}
+                  rejectedByName={item.rejected_by_member?.full_name}
+                  rejectedAt={item.rejected_at}
+                  actionButtons={
+                    item.status === "pending" ? (
+                      <>
+                        <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAcceptTask(item.id)}>
+                          <Text style={styles.acceptBtnText}>Accept</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRejectTask(item.id)}>
+                          <Text style={styles.rejectBtnText}>Reject</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : null
+                  }
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+            />
+          )
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No updates yet</Text>
@@ -184,6 +277,20 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, fontWeight: "600", color: "#374151", marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: "#9CA3AF", textAlign: "center" },
 
+  loading: { marginVertical: 20 },
+  listContent: { paddingTop: 8 },
+
+  acceptBtn: {
+    flex: 1, backgroundColor: "#10B981", borderRadius: 8, paddingVertical: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  acceptBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  rejectBtn: {
+    flex: 1, backgroundColor: "#EF4444", borderRadius: 8, paddingVertical: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  rejectBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalContainer: { flex: 1, backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalCard: { backgroundColor: "#fff" },
@@ -194,8 +301,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
   closeBtn: { padding: 4 },
   closeBtnText: { fontSize: 22, color: "#9CA3AF" },
-
-  loading: { marginVertical: 20 },
 
   memberRow: {
     flexDirection: "row", alignItems: "center", paddingVertical: 12,

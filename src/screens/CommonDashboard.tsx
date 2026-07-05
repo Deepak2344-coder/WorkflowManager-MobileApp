@@ -27,10 +27,14 @@ interface Task {
   confirmed: boolean;
   deadline: string | null;
   remarks: string | null;
+  accepted_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
   teams: { name: string };
   claimed_by_member?: { full_name: string } | null;
   started_by_member?: { full_name: string }[] | null;
   created_by_member?: { full_name: string } | null;
+  rejected_by_member?: { full_name: string } | null;
 }
 
 interface TeamMember {
@@ -76,7 +80,7 @@ export default function CommonDashboard() {
   const [filterDate, setFilterDate] = useState<Date | null>(null);
 
   const filteredTasks = useMemo(() => {
-    let list = tasks.filter((t) => t.confirmed);
+    let list = tasks;
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
       list = list.filter((t) => t.title.toLowerCase().includes(q));
@@ -102,14 +106,14 @@ export default function CommonDashboard() {
   }, [updates, searchText, filterDate]);
 
   const teamUnseenTasks: Record<string, number> = {};
-  const teamPendingAcceptance: Record<string, number> = {};
   const teamPending: Record<string, number> = {};
   const teamInProgress: Record<string, number> = {};
+  const teamRejected: Record<string, number> = {};
   for (const t of activeTasksOverview) {
     const tid = t.assigned_team_id;
     if (t.status === "in_progress") teamInProgress[tid] = (teamInProgress[tid] || 0) + 1;
-    if (t.status === "pending" && t.confirmed) teamPending[tid] = (teamPending[tid] || 0) + 1;
-    if (!t.confirmed) teamPendingAcceptance[tid] = (teamPendingAcceptance[tid] || 0) + 1;
+    if (t.status === "pending") teamPending[tid] = (teamPending[tid] || 0) + 1;
+    if (t.status === "rejected") teamRejected[tid] = (teamRejected[tid] || 0) + 1;
     if (!viewedTaskIds.has(t.id)) teamUnseenTasks[tid] = (teamUnseenTasks[tid] || 0) + 1;
   }
 
@@ -143,16 +147,14 @@ export default function CommonDashboard() {
     if (selectedTeamId) {
       const { data } = await supabase
         .from("tasks")
-        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, teams!inner(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name)")
+        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, accepted_at, rejected_by, rejected_at, teams!inner(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
         .eq("assigned_team_id", selectedTeamId)
-        .eq("confirmed", true)
         .order("created_at", { ascending: false });
       setTasks((data ?? []) as Task[]);
     } else {
       const { data } = await supabase
         .from("tasks")
-        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name)")
-        .eq("confirmed", true)
+        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, accepted_at, rejected_by, rejected_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
         .order("created_at", { ascending: false });
       setTasks((data ?? []) as Task[]);
     }
@@ -266,6 +268,16 @@ export default function CommonDashboard() {
     return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  const reassignTask = async (taskId: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "pending", claimed_by: null, accepted_at: null, rejected_by: null, rejected_at: null })
+      .eq("id", taskId);
+    if (error) return Alert.alert("Error", error.message);
+    fetchTasks();
+  };
+
   const assignTask = async () => {
     if (!assignSubject.trim()) return Alert.alert("Error", "Enter a subject");
     if (!selectedTeamId) return;
@@ -308,9 +320,9 @@ export default function CommonDashboard() {
           data={teams}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            const pendingAcc = teamPendingAcceptance[item.id] || 0;
-            const pend = teamPending[item.id] || 0;
+            const pending = teamPending[item.id] || 0;
             const inProg = teamInProgress[item.id] || 0;
+            const rejected = teamRejected[item.id] || 0;
             const unseen = teamUnseenTasks[item.id] || 0;
             const uUnseen = teamUnseenUpdates[item.id] || 0;
             return (
@@ -330,9 +342,9 @@ export default function CommonDashboard() {
                     )}
                   </View>
                   <View style={styles.teamCardMeta}>
-                    {pendingAcc > 0 && <Text style={styles.teamCardMetaText}>{pendingAcc} pending acceptance</Text>}
-                    {pend > 0 && <Text style={styles.teamCardMetaText}>{pend} pending</Text>}
+                    {pending > 0 && <Text style={styles.teamCardMetaText}>{pending} pending acceptance</Text>}
                     {inProg > 0 && <Text style={styles.teamCardMetaText}>{inProg} in progress</Text>}
+                    {rejected > 0 && <Text style={[styles.teamCardMetaText, { color: "#EF4444" }]}>{rejected} rejected</Text>}
                   </View>
                 </View>
                 <Text style={styles.teamGridArrow}>›</Text>
@@ -346,7 +358,7 @@ export default function CommonDashboard() {
     );
   }
 
-  const confirmedTasks = tasks.filter((t) => t.confirmed);
+  const tasksList = tasks;
 
   return (
     <View style={styles.container}>
@@ -359,9 +371,9 @@ export default function CommonDashboard() {
       </View>
 
       <View style={styles.subTabBar}>
-        <TouchableOpacity style={[styles.subTab, activeSubTab === "tasks" && styles.subTabActive]} onPress={() => setActiveSubTab("tasks")}>
+          <TouchableOpacity style={[styles.subTab, activeSubTab === "tasks" && styles.subTabActive]} onPress={() => setActiveSubTab("tasks")}>
           <Text style={[styles.subTabText, activeSubTab === "tasks" && styles.subTabTextActive]}>Tasks</Text>
-          {(() => { const unseen = confirmedTasks.filter(t => t.status !== "done" && !viewedTaskIds.has(t.id)).length; return unseen > 0 ? (
+          {(() => { const unseen = tasks.filter(t => t.status !== "done" && !viewedTaskIds.has(t.id)).length; return unseen > 0 ? (
             <View style={[styles.subTabBadge, activeSubTab === "tasks" && styles.subTabBadgeActive]}>
               <Text style={styles.subTabBadgeText}>{unseen}</Text>
             </View>
@@ -384,12 +396,15 @@ export default function CommonDashboard() {
             key="taskList"
             data={filteredTasks}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} onOpen={() => markTaskSeen(item.id)} />
-            )}
-            ListEmptyComponent={<Text style={styles.empty}>No confirmed tasks for this team</Text>}
+            renderItem={({ item }) => {
+              const isTaskCreator = user?.id === item.created_by;
+              return (
+              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} onOpen={() => markTaskSeen(item.id)} onReassign={isTaskCreator ? () => reassignTask(item.id) : undefined} />
+              );
+            }}
+            ListEmptyComponent={<Text style={styles.empty}>No tasks for this team</Text>}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchTasks(); if (selectedTeamId) fetchTaskAssignees(selectedTeamId); }} />}
-            contentContainerStyle={confirmedTasks.length === 0 ? styles.emptyContainer : undefined}
+            contentContainerStyle={tasks.length === 0 ? styles.emptyContainer : undefined}
           />
 
           <TouchableOpacity style={styles.fab} onPress={() => setShowAssignModal(true)}>
