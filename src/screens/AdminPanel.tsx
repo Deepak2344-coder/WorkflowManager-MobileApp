@@ -31,12 +31,19 @@ export default function AdminPanel() {
   const fetchAll = async () => {
     setLoading(true);
     const [tr, teamsRes, membersRes, teamMembersRes] = await Promise.all([
-      supabase.from("team_requests").select("id, requested_by, team_name, status, created_at, members!inner(email, full_name)").eq("status", "pending").order("created_at"),
+      supabase.from("team_requests").select("id, requested_by, team_name, status, created_at").eq("status", "pending").order("created_at"),
       supabase.from("teams").select("id, name").order("name"),
       supabase.from("members").select("id, email, full_name"),
       supabase.from("team_members").select("member_id, team_id"),
     ]);
-    if (!tr.error) setTeamRequests((tr.data ?? []) as unknown as TeamRequest[]);
+    if (!tr.error) {
+      const membersMap = new Map((membersRes.data ?? []).map((m: any) => [m.id, { email: m.email, full_name: m.full_name }]));
+      const requestsWithMember = (tr.data ?? []).map((r: any) => ({
+        ...r,
+        members: membersMap.get(r.requested_by) ?? null,
+      }));
+      setTeamRequests(requestsWithMember as unknown as TeamRequest[]);
+    } else console.error("fetch team_requests error:", tr.error);
     if (!teamsRes.error && !teamMembersRes.error) {
       const membersMap = new Map((membersRes.data ?? []).map((m: any) => [m.id, { email: m.email, full_name: m.full_name }]));
       const teamsWithMembers: TeamWithMembers[] = (teamsRes.data ?? []).map((team: any) => ({
