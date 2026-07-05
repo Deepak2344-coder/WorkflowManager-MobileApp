@@ -36,10 +36,7 @@ CREATE POLICY "teams_select_all" ON teams FOR SELECT USING (auth.role() = 'authe
 CREATE POLICY "teams_insert_admin" ON teams FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- ── team_members ──
-CREATE POLICY "team_members_select_own_teams" ON team_members FOR SELECT USING (
-  team_id IN (SELECT team_id FROM team_members WHERE member_id = auth.uid())
-  OR member_id = auth.uid()
-);
+-- DROPPED (was recursive): team_members_select_own_teams
 CREATE POLICY "team_members_insert_join" ON team_members FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "team_members_delete_own" ON team_members FOR DELETE USING (member_id = auth.uid());
 

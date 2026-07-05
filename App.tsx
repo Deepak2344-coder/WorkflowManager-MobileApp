@@ -7,6 +7,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import AuthScreen from "./src/screens/AuthScreen";
 import Dashboard from "./src/screens/Dashboard";
+import MyTeamsScreen from "./src/screens/MyTeamsScreen";
+import TeamDetailScreen from "./src/screens/TeamDetailScreen";
 import CommonDashboard from "./src/screens/CommonDashboard";
 import TaskHistory from "./src/screens/TaskHistory";
 import AdminPanel from "./src/screens/AdminPanel";
@@ -23,6 +25,7 @@ function MainTabs() {
   return (
     <Tab.Navigator screenOptions={{ headerRight: () => <HamburgerMenu /> }}>
       <Tab.Screen name="Dashboard" component={Dashboard} options={{ headerTitle: () => <DevMenu /> }} />
+      <Tab.Screen name="MyTeams" component={MyTeamsScreen} options={{ title: "My Teams" }} />
       <Tab.Screen name="Common" component={CommonDashboard} options={{ title: "All Tasks" }} />
       <Tab.Screen name="History" component={TaskHistory} options={{ title: "Task History" }} />
       {Platform.OS === "web" && (
@@ -57,6 +60,7 @@ function RootNavigator() {
         {!session && <Stack.Screen name="Auth" component={AuthScreen} />}
         {session && needsUsername && <Stack.Screen name="UsernamePrompt">{() => <UsernamePrompt onComplete={handleProfileSaved} />}</Stack.Screen>}
         {session && !needsUsername && <Stack.Screen name="Main" component={MainTabs} />}
+        {session && !needsUsername && <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />}
       </Stack.Navigator>
     </NavigationContainer>
   );

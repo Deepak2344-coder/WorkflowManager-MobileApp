@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, TextInput, ActivityIndicator, ScrollView } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, TextInput, ActivityIndicator, ScrollView, Keyboard } from "react-native";
 import { supabase, deleteAuthUser } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useProfile } from "../hooks/useProfile";
@@ -62,7 +62,7 @@ export default function HamburgerMenu() {
     ]);
   };
 
-  const close = () => { setVisible(false); setView("menu"); };
+  const close = () => { setVisible(false); setView("menu"); Keyboard.dismiss(); };
 
   if (deleting) {
     return (
@@ -80,8 +80,13 @@ export default function HamburgerMenu() {
       </TouchableOpacity>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={close}>
-          <View style={styles.menu} onStartShouldSetResponder={() => true}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={close} accessible={false} />
+        <ScrollView
+          style={styles.menu}
+          contentContainerStyle={styles.menuContent}
+          keyboardShouldPersistTaps="handled"
+          onStartShouldSetResponder={() => true}
+        >
             {view === "profile" && (
               <>
                 <TouchableOpacity onPress={() => setView("menu")} style={styles.backRow}>
@@ -153,8 +158,7 @@ export default function HamburgerMenu() {
                 </TouchableOpacity>
               </>
             )}
-          </View>
-        </TouchableOpacity>
+          </ScrollView>
       </Modal>
     </View>
   );
@@ -176,7 +180,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
+    maxHeight: "80%",
   },
+  menuContent: { paddingBottom: 20 },
   menuTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", paddingBottom: 8 },
   menuItem: { paddingVertical: 12 },
   menuItemText: { fontSize: 16, color: "#374151", fontWeight: "500" },
