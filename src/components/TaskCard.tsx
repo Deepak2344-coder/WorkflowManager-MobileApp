@@ -61,6 +61,8 @@ export default function TaskCard({ title, description, status, teamName, remarks
         {deadline && (
           <Text style={styles.deadline}>Due {new Date(deadline).toLocaleDateString()} {new Date(deadline).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
         )}
+        {responseRemark && status === "done" ? <Text style={styles.responseRemarkCard}>Completion note: {responseRemark}</Text> : null}
+        {responseRemark && status === "rejected" ? <Text style={styles.responseRemarkCardRejected}>Rejection reason: {responseRemark}</Text> : null}
       </TouchableOpacity>
 
       {actionButtons && (
@@ -136,6 +138,8 @@ const styles = StyleSheet.create({
   teamName: { fontSize: 13, color: "#6B7280", marginBottom: 2 },
   createdBy: { fontSize: 12, color: "#6B7280", marginBottom: 2 },
   deadline: { fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 },
+  responseRemarkCard: { fontSize: 12, color: "#10B981", marginTop: 4, fontStyle: "italic" },
+  responseRemarkCardRejected: { fontSize: 12, color: "#EF4444", marginTop: 4, fontStyle: "italic" },
 
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center" },
   detailScroll: { flex: 1 },
