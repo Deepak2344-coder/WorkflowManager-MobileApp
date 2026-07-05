@@ -44,7 +44,7 @@ export default function TeamDetailScreen() {
   const navigation = useNavigation();
   const { teamId, teamName } = route.params;
 
-  const [activeTab, setActiveTab] = useState<"tasks" | "updates">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "previous" | "updates">("tasks");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -95,6 +95,16 @@ export default function TeamDetailScreen() {
     fetchTasks();
   };
 
+  const handleCompleteTask = async (taskId: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "done", completed_at: new Date().toISOString() })
+      .eq("id", taskId);
+    if (error) return Alert.alert("Error", error.message);
+    fetchTasks();
+  };
+
   const handleLeaveTeam = async () => {
     Alert.alert("Leave Team", `Are you sure you want to leave "${teamName}"?`, [
       { text: "Cancel", style: "cancel" },
@@ -138,6 +148,12 @@ export default function TeamDetailScreen() {
           <Text style={[styles.tabText, activeTab === "tasks" && styles.tabTextActive]}>Assigned Tasks</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, activeTab === "previous" && styles.tabActive]}
+          onPress={() => setActiveTab("previous")}
+        >
+          <Text style={[styles.tabText, activeTab === "previous" && styles.tabTextActive]}>Previous Tasks</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, activeTab === "updates" && styles.tabActive]}
           onPress={() => setActiveTab("updates")}
         >
@@ -149,14 +165,14 @@ export default function TeamDetailScreen() {
         {activeTab === "tasks" ? (
           tasksLoading ? (
             <ActivityIndicator style={styles.loading} size="large" />
-          ) : tasks.length === 0 ? (
+          ) : tasks.filter(t => t.status !== "done").length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No tasks assigned yet</Text>
               <Text style={styles.emptySubtext}>Tasks assigned to this team will appear here</Text>
             </View>
           ) : (
             <FlatList
-              data={tasks}
+              data={tasks.filter(t => t.status !== "done")}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TaskCard
@@ -184,8 +200,45 @@ export default function TeamDetailScreen() {
                           <Text style={styles.rejectBtnText}>Reject</Text>
                         </TouchableOpacity>
                       </>
+                    ) : item.status === "in_progress" ? (
+                      <TouchableOpacity style={styles.completeBtn} onPress={() => handleCompleteTask(item.id)}>
+                        <Text style={styles.completeBtnText}>Mark as Completed</Text>
+                      </TouchableOpacity>
                     ) : null
                   }
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+            />
+          )
+        ) : activeTab === "previous" ? (
+          tasksLoading ? (
+            <ActivityIndicator style={styles.loading} size="large" />
+          ) : tasks.filter(t => t.status === "done").length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No previous tasks</Text>
+              <Text style={styles.emptySubtext}>Completed tasks will appear here</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={tasks.filter(t => t.status === "done")}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TaskCard
+                  title={item.title}
+                  description={item.description}
+                  status={item.status}
+                  teamName={teamName}
+                  deadline={item.deadline}
+                  remarks={item.remarks}
+                  createdByName={item.created_by_member?.full_name}
+                  claimedByName={item.claimed_by_member?.full_name}
+                  completedAt={item.completed_at}
+                  createdAt={item.created_at}
+                  acceptedAt={item.accepted_at}
+                  rejectedBy={item.rejected_by}
+                  rejectedByName={item.rejected_by_member?.full_name}
+                  rejectedAt={item.rejected_at}
                 />
               )}
               contentContainerStyle={styles.listContent}
@@ -290,6 +343,11 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   rejectBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  completeBtn: {
+    flex: 1, backgroundColor: "#10B981", borderRadius: 8, paddingVertical: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  completeBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalContainer: { flex: 1, backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },

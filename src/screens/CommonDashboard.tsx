@@ -59,7 +59,7 @@ export default function CommonDashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "updates">("tasks");
+  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "previous" | "updates">("tasks");
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignSubject, setAssignSubject] = useState("");
   const [assignDesc, setAssignDesc] = useState("");
@@ -379,6 +379,9 @@ export default function CommonDashboard() {
             </View>
           ) : null; })()}
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.subTab, activeSubTab === "previous" && styles.subTabActive]} onPress={() => setActiveSubTab("previous")}>
+          <Text style={[styles.subTabText, activeSubTab === "previous" && styles.subTabTextActive]}>Previous Tasks</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.subTab, activeSubTab === "updates" && styles.subTabActive]} onPress={() => setActiveSubTab("updates")}>
           <Text style={[styles.subTabText, activeSubTab === "updates" && styles.subTabTextActive]}>Updates</Text>
           {(() => { const unseen = updates.filter((u) => !viewedUpdateIds.has(u.id)).length; return unseen > 0 ? (
@@ -394,7 +397,7 @@ export default function CommonDashboard() {
           <SearchFilterBar searchPlaceholder="Search tasks..." onSearchChange={setSearchText} filterDate={filterDate} onDateChange={setFilterDate} />
           <FlatList
             key="taskList"
-            data={filteredTasks}
+            data={filteredTasks.filter(t => t.status !== "done")}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
               const isTaskCreator = user?.id === item.created_by;
@@ -402,14 +405,29 @@ export default function CommonDashboard() {
               <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} onOpen={() => markTaskSeen(item.id)} onReassign={isTaskCreator ? () => reassignTask(item.id) : undefined} />
               );
             }}
-            ListEmptyComponent={<Text style={styles.empty}>No tasks for this team</Text>}
+            ListEmptyComponent={<Text style={styles.empty}>No active tasks for this team</Text>}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchTasks(); if (selectedTeamId) fetchTaskAssignees(selectedTeamId); }} />}
-            contentContainerStyle={tasks.length === 0 ? styles.emptyContainer : undefined}
+            contentContainerStyle={tasks.filter(t => t.status !== "done").length === 0 ? styles.emptyContainer : undefined}
           />
 
           <TouchableOpacity style={styles.fab} onPress={() => setShowAssignModal(true)}>
             <Text style={styles.fabText}>+</Text>
           </TouchableOpacity>
+        </>
+      ) : activeSubTab === "previous" ? (
+        <>
+          <SearchFilterBar searchPlaceholder="Search completed tasks..." onSearchChange={setSearchText} filterDate={filterDate} onDateChange={setFilterDate} />
+          <FlatList
+            key="prevTaskList"
+            data={filteredTasks.filter(t => t.status === "done")}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} />
+            )}
+            ListEmptyComponent={<Text style={styles.empty}>No completed tasks yet</Text>}
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchTasks(); if (selectedTeamId) fetchTaskAssignees(selectedTeamId); }} />}
+            contentContainerStyle={tasks.filter(t => t.status === "done").length === 0 ? styles.emptyContainer : undefined}
+          />
         </>
       ) : (
         <View style={{ flex: 1 }}>
