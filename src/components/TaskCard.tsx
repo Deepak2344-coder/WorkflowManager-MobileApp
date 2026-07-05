@@ -19,6 +19,7 @@ interface TaskCardProps {
   rejectedByName?: string | null;
   rejectedAt?: string | null;
   createdAt?: string | null;
+  responseRemark?: string | null;
   onOpen?: () => void;
   onReassign?: () => void;
   actionButtons?: React.ReactNode;
@@ -38,7 +39,7 @@ const statusLabels: Record<string, string> = {
   rejected: "Rejected",
 };
 
-export default function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, acceptedAt, acceptedByName, rejectedBy, rejectedByName, rejectedAt, createdAt, onOpen, onReassign, actionButtons }: TaskCardProps) {
+export default function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, acceptedAt, acceptedByName, rejectedBy, rejectedByName, rejectedAt, createdAt, responseRemark, onOpen, onReassign, actionButtons }: TaskCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
   const openDetail = () => {
@@ -97,6 +98,8 @@ export default function TaskCard({ title, description, status, teamName, remarks
               {description ? <Text style={styles.detailText}>{description}</Text> : null}
               {remarks ? <Text style={styles.detailSectionLabel}>Remarks</Text> : null}
               {remarks ? <Text style={styles.detailText}>{remarks}</Text> : null}
+              {responseRemark ? <Text style={styles.detailSectionLabel}>Response Remark</Text> : null}
+              {responseRemark ? <Text style={styles.detailText}>{responseRemark}</Text> : null}
               <TouchableOpacity style={styles.closeBtn} onPress={() => setShowDetail(false)}>
                 <Text style={styles.closeBtnText}>Close</Text>
               </TouchableOpacity>

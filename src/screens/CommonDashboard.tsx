@@ -27,6 +27,7 @@ interface Task {
   confirmed: boolean;
   deadline: string | null;
   remarks: string | null;
+  response_remark: string | null;
   accepted_at: string | null;
   rejected_by: string | null;
   rejected_at: string | null;
@@ -147,14 +148,14 @@ export default function CommonDashboard() {
     if (selectedTeamId) {
       const { data } = await supabase
         .from("tasks")
-        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, accepted_at, rejected_by, rejected_at, teams!inner(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
+        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, response_remark, accepted_at, rejected_by, rejected_at, teams!inner(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
         .eq("assigned_team_id", selectedTeamId)
         .order("created_at", { ascending: false });
       setTasks((data ?? []) as Task[]);
     } else {
       const { data } = await supabase
         .from("tasks")
-        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, accepted_at, rejected_by, rejected_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
+        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, response_remark, accepted_at, rejected_by, rejected_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
         .order("created_at", { ascending: false });
       setTasks((data ?? []) as Task[]);
     }
@@ -402,7 +403,7 @@ export default function CommonDashboard() {
             renderItem={({ item }) => {
               const isTaskCreator = user?.id === item.created_by;
               return (
-              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} onOpen={() => markTaskSeen(item.id)} onReassign={isTaskCreator ? () => reassignTask(item.id) : undefined} />
+              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} responseRemark={item.response_remark} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} onOpen={() => markTaskSeen(item.id)} onReassign={isTaskCreator ? () => reassignTask(item.id) : undefined} />
               );
             }}
             ListEmptyComponent={<Text style={styles.empty}>No active tasks for this team</Text>}
@@ -422,7 +423,7 @@ export default function CommonDashboard() {
             data={filteredTasks.filter(t => t.status === "done")}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} />
+              <TaskCard title={item.title} description={item.description} status={item.status} teamName={selectedTeam?.name ?? ""} remarks={item.remarks} responseRemark={item.response_remark} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} />
             )}
             ListEmptyComponent={<Text style={styles.empty}>No completed tasks yet</Text>}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchTasks(); if (selectedTeamId) fetchTaskAssignees(selectedTeamId); }} />}

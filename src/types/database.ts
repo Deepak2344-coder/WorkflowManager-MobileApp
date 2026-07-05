@@ -233,6 +233,7 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           remarks: string | null
+          response_remark: string | null
           status: string
           title: string
           confirmed: boolean
@@ -251,6 +252,7 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           remarks?: string | null
+          response_remark?: string | null
           status?: string
           title: string
           confirmed?: boolean
@@ -269,6 +271,7 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           remarks?: string | null
+          response_remark?: string | null
           status?: string
           title?: string
           confirmed?: boolean
