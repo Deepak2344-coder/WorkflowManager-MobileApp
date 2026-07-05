@@ -4,6 +4,15 @@ import * as Notifications from "expo-notifications";
 import { supabase, SUPABASE_URL } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 
+async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    const result = await fn();
+    if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs));
+    return result;
+  }
+  return fn();
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true }),
 });
@@ -33,10 +42,10 @@ export function usePushNotifications() {
         const token = tokenData.data;
         console.log("Got device push token:", token);
 
-        const { error } = await supabase.from("push_tokens").upsert(
+        const { error } = await retry(() => supabase.from("push_tokens").upsert(
           { member_id: user.id, token, updated_at: new Date().toISOString() },
           { onConflict: "member_id" }
-        );
+        ));
         if (error) console.error("Push token upsert error:", error);
         else console.log("Push token saved");
 

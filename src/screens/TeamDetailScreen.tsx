@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView, FlatList } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, FlatList } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -108,7 +108,7 @@ export default function TeamDetailScreen() {
 
       <Modal visible={showInfoModal} transparent animationType="fade" onRequestClose={closeInfoModal}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeInfoModal}>
-          <ScrollView style={styles.modalContainer} contentContainerStyle={styles.modalContent}>
+          <View style={styles.modalContainer}>
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Team Members</Text>
@@ -152,7 +152,7 @@ export default function TeamDetailScreen() {
                 />
               </View>
             </View>
-          </ScrollView>
+          </View>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -185,8 +185,7 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: "#9CA3AF", textAlign: "center" },
 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  modalContainer: { flex: 1, backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  modalContent: { padding: 24, paddingBottom: 40, flexGrow: 1 },
+  modalContainer: { flex: 1, backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalCard: { backgroundColor: "#fff" },
   modalHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",

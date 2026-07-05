@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal,
-  ActivityIndicator, Alert, ScrollView, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -146,7 +146,7 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
 
       <Modal visible={showBrowseModal} transparent animationType="fade" onRequestClose={() => setShowBrowseModal(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowBrowseModal(false)}>
-          <ScrollView style={styles.browseModal} contentContainerStyle={styles.browseModalContent}>
+          <View style={styles.browseModal}>
             <View style={styles.browseCard}>
               <View style={styles.browseHeader}>
                 <Text style={styles.browseTitle}>Browse Teams</Text>
@@ -184,7 +184,7 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
                 />
               )}
             </View>
-          </ScrollView>
+          </View>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -226,8 +226,7 @@ const styles = StyleSheet.create({
   fabText: { color: "#fff", fontSize: 28, fontWeight: "300", lineHeight: 30 },
 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 16 },
-  browseModal: { flex: 1, backgroundColor: "#fff", borderRadius: 16, maxHeight: "85%" },
-  browseModalContent: { paddingBottom: 24 },
+  browseModal: { flex: 1, backgroundColor: "#fff", borderRadius: 16, maxHeight: "85%", paddingBottom: 24 },
   browseCard: { padding: 20 },
   browseHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
