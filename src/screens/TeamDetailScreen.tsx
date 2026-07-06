@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, FlatList, TextInput } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { supabase } from "../lib/supabase";
+import { supabase, deleteUpdate } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/Button";
 import TaskCard from "../components/TaskCard";
@@ -144,6 +144,17 @@ export default function TeamDetailScreen() {
     setNewUpdateTitle("");
     setNewUpdateContent("");
     fetchUpdates();
+  };
+
+  const confirmDeleteUpdate = (updateId: string) => {
+    Alert.alert("Delete Update", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        const { error } = await deleteUpdate(updateId);
+        if (error) return Alert.alert("Error", error);
+        fetchUpdates();
+      }},
+    ]);
   };
 
   const formatTime = (iso: string | null) => {
@@ -367,13 +378,16 @@ export default function TeamDetailScreen() {
               <FlatList
                 data={filteredUpdates}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
+                renderItem={({ item }) => {
+                  const isOwner = user?.id === item.posted_by;
+                  return (
                   <TouchableOpacity
                     style={styles.updateCard}
                     onPress={() => {
                       setSelectedUpdate({ ...item, timeStr: formatTime(item.created_at) });
                       setShowUpdateDetailModal(true);
                     }}
+                    onLongPress={isOwner ? () => confirmDeleteUpdate(item.id) : undefined}
                     activeOpacity={0.7}
                   >
                     <View style={{ flex: 1 }}>
@@ -382,7 +396,8 @@ export default function TeamDetailScreen() {
                       <Text style={styles.updateCardAuthor}>{item.members?.full_name || item.members?.email} · {formatTime(item.created_at)}</Text>
                     </View>
                   </TouchableOpacity>
-                )}
+                  );
+                }}
                 ListEmptyComponent={<Text style={styles.emptyText}>No updates yet</Text>}
                 contentContainerStyle={filteredUpdates.length === 0 ? styles.emptyContainerStyle : styles.listContent}
               />
