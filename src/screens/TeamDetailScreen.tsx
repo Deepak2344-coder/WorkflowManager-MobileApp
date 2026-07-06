@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicat
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase, deleteUpdate } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
 import TaskCard from "../components/TaskCard";
 import SearchFilterBar from "../components/SearchFilterBar";
@@ -132,14 +133,15 @@ export default function TeamDetailScreen() {
     if (!newUpdateTitle.trim() || !newUpdateContent.trim()) { Alert.alert("Error", "Title and description are required"); return; }
     if (!user?.id) return;
     setSendingUpdate(true);
-    const { error } = await supabase.from("task_updates").insert({
+    const { data: newUpdate, error } = await supabase.from("task_updates").insert({
       team_id: teamId,
       posted_by: user.id,
       title: newUpdateTitle.trim(),
       content: newUpdateContent.trim(),
-    });
+    }).select("id").single();
     setSendingUpdate(false);
     if (error) { Alert.alert("Error", error.message); return; }
+    if (newUpdate) notify("update", newUpdate.id, teamId);
     setShowAddUpdateModal(false);
     setNewUpdateTitle("");
     setNewUpdateContent("");

@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import * as Notifications from "expo-notifications";
 import { supabase, SUPABASE_URL } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 
-async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
+async function retry<T extends { error?: any }>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
   for (let i = 0; i < retries; i++) {
     const result = await fn();
+    if (result && typeof result === "object" && "error" in result && !(result as any).error) return result;
     if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs));
-    return result;
+    if (i === retries - 1) return result;
   }
   return fn();
 }
@@ -46,8 +47,12 @@ export function usePushNotifications() {
           { member_id: user.id, token, updated_at: new Date().toISOString() },
           { onConflict: "member_id" }
         ));
-        if (error) console.error("Push token upsert error:", error);
-        else console.log("Push token saved");
+        if (error) {
+          console.error("Push token upsert error:", error);
+          Alert.alert("Notification Setup", `Failed to save push token: ${error.message}`);
+        } else {
+          console.log("Push token saved");
+        }
 
         if (Platform.OS === "android") {
           Notifications.setNotificationChannelAsync("default", {
@@ -72,8 +77,14 @@ export async function notify(type: "notice" | "update" | "task", record_id: stri
       body: JSON.stringify({ type, record_id, team_id }),
     });
     const text = await res.text();
-    if (!res.ok) console.error("notify error:", text);
+    if (!res.ok) {
+      console.error("notify error:", text);
+      Alert.alert("Notification Error", `Server returned ${res.status}: ${text}`);
+    } else {
+      console.log("notify response:", text);
+    }
   } catch (e: any) {
     console.error("notify fetch error:", e.message);
+    Alert.alert("Notification Error", `Failed to send: ${e.message}`);
   }
 }

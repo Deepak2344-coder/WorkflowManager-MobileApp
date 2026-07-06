@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const RATE_LIMIT_WINDOW = 5_000;
 const rateMap = new Map<string, number>();
 
@@ -12,10 +18,28 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
+function jsonResponse(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+function textResponse(text: string, status: number) {
+  return new Response(text, {
+    status,
+    headers: { ...CORS_HEADERS },
+  });
+}
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   try {
     const clientIp = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(clientIp)) return new Response("rate limited", { status: 429 });
+    if (!checkRateLimit(clientIp)) return textResponse("rate limited", 429);
 
     const { type, record_id, team_id } = await req.json();
     console.log("notify called:", { type, record_id, team_id });
@@ -28,7 +52,7 @@ serve(async (req) => {
     const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!saRaw) {
       console.error("FCM_SERVICE_ACCOUNT not set");
-      return new Response("no secret", { status: 500 });
+      return textResponse("no secret", 500);
     }
 
     let sa: any;
@@ -36,7 +60,7 @@ serve(async (req) => {
       sa = JSON.parse(saRaw);
     } catch (e) {
       console.error("FCM_SERVICE_ACCOUNT parse error:", e.message);
-      return new Response("bad secret", { status: 500 });
+      return textResponse("bad secret", 500);
     }
 
     let memberIds: string[] | null = null;
@@ -49,7 +73,7 @@ serve(async (req) => {
       memberIds = (members ?? []).map((m: { member_id: string }) => m.member_id);
       if (memberIds.length === 0) {
         console.log("no members in team", team_id);
-        return new Response("no members", { status: 200 });
+        return jsonResponse({ sent: 0, failed: 0 }, 200);
       }
     }
 
@@ -61,11 +85,11 @@ serve(async (req) => {
 
     if (ptErr) {
       console.error("push_tokens query error:", ptErr);
-      return new Response("db error", { status: 500 });
+      return textResponse("db error", 500);
     }
     if (!pushTokens || pushTokens.length === 0) {
       console.log("no push tokens found");
-      return new Response("no tokens", { status: 200 });
+      return jsonResponse({ sent: 0, failed: 0 }, 200);
     }
     console.log("push tokens found:", pushTokens.length);
 
@@ -159,7 +183,7 @@ serve(async (req) => {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok) {
       console.error("FCM OAuth error:", JSON.stringify(tokenData));
-      return new Response("oauth error", { status: 500 });
+      return jsonResponse({ error: "oauth_error", detail: tokenData.error_description || tokenData.error }, 500);
     }
     const fcmToken = tokenData.access_token;
     console.log("got FCM access token");
@@ -167,6 +191,7 @@ serve(async (req) => {
     const projectId = sa.project_id;
     let sent = 0;
     let failed = 0;
+    const errorDetails: string[] = [];
 
     for (const pt of pushTokens) {
       if (!pt.token) continue;
@@ -185,9 +210,9 @@ serve(async (req) => {
                 notification: { title, body },
                 data,
                 android: {
+                  priority: "HIGH",
                   notification: {
                     channel_id: "default",
-                    priority: "high",
                     sound: "default",
                   },
                 },
@@ -200,21 +225,20 @@ serve(async (req) => {
         } else {
           const errBody = await fcmRes.text();
           console.error("FCM send error for", pt.member_id, ":", fcmRes.status, errBody);
+          if (errorDetails.length < 3) errorDetails.push(`HTTP ${fcmRes.status}: ${errBody.slice(0, 200)}`);
           failed++;
         }
       } catch (e: any) {
         console.error("FCM send exception for", pt.member_id, ":", e.message);
+        if (errorDetails.length < 3) errorDetails.push(e.message);
         failed++;
       }
     }
 
     console.log(`FCM results: ${sent} sent, ${failed} failed`);
-    return new Response(JSON.stringify({ sent, failed }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse({ sent, failed, errors: errorDetails }, 200);
   } catch (e: any) {
     console.error("notify function error:", e.message, e.stack);
-    return new Response(e.message, { status: 500 });
+    return textResponse(e.message, 500);
   }
 });
