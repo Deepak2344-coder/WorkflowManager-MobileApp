@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, FlatList, TextInput } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/Button";
 import TaskCard from "../components/TaskCard";
+import SearchFilterBar from "../components/SearchFilterBar";
 
 interface Member {
   member_id: string;
@@ -32,6 +33,15 @@ interface Task {
   created_by_member?: { full_name: string } | null;
   claimed_by_member?: { full_name: string } | null;
   rejected_by_member?: { full_name: string } | null;
+}
+
+interface TaskUpdate {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string | null;
+  posted_by: string;
+  members: { full_name: string; email: string } | null;
 }
 
 interface RouteParams {
@@ -62,6 +72,30 @@ export default function TeamDetailScreen() {
   const [remarkActionType, setRemarkActionType] = useState<"reject" | "complete" | null>(null);
   const [remarkText, setRemarkText] = useState("");
 
+  const [updates, setUpdates] = useState<TaskUpdate[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [showAddUpdateModal, setShowAddUpdateModal] = useState(false);
+  const [newUpdateTitle, setNewUpdateTitle] = useState("");
+  const [newUpdateContent, setNewUpdateContent] = useState("");
+  const [sendingUpdate, setSendingUpdate] = useState(false);
+  const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
+  const [selectedUpdate, setSelectedUpdate] = useState<(TaskUpdate & { timeStr: string }) | null>(null);
+
+  const filteredUpdates = useMemo(() => {
+    let list = updates;
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      list = list.filter((u) => u.title.toLowerCase().includes(q));
+    }
+    if (filterDate) {
+      const target = filterDate.toDateString();
+      list = list.filter((u) => u.created_at && new Date(u.created_at).toDateString() === target);
+    }
+    return list;
+  }, [updates, searchText, filterDate]);
+
   const fetchMembers = async () => {
     setLoadingMembers(true);
     const { data } = await supabase
@@ -83,7 +117,42 @@ export default function TeamDetailScreen() {
     setTasksLoading(false);
   }, [teamId]);
 
-  useEffect(() => { fetchMembers(); fetchTasks(); }, [teamId, fetchTasks]);
+  const fetchUpdates = async () => {
+    setUpdatesLoading(true);
+    const { data } = await supabase
+      .from("task_updates")
+      .select("id, title, content, created_at, posted_by, members!inner(full_name, email)")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false });
+    setUpdates((data ?? []) as TaskUpdate[]);
+    setUpdatesLoading(false);
+  };
+
+  const submitUpdate = async () => {
+    if (!newUpdateTitle.trim() || !newUpdateContent.trim()) { Alert.alert("Error", "Title and description are required"); return; }
+    if (!user?.id) return;
+    setSendingUpdate(true);
+    const { error } = await supabase.from("task_updates").insert({
+      team_id: teamId,
+      posted_by: user.id,
+      title: newUpdateTitle.trim(),
+      content: newUpdateContent.trim(),
+    });
+    setSendingUpdate(false);
+    if (error) { Alert.alert("Error", error.message); return; }
+    setShowAddUpdateModal(false);
+    setNewUpdateTitle("");
+    setNewUpdateContent("");
+    fetchUpdates();
+  };
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  useEffect(() => { fetchMembers(); fetchTasks(); fetchUpdates(); }, [teamId, fetchTasks]);
 
   const openAcceptModal = (taskId: string) => {
     if (!user?.id) return;
@@ -290,12 +359,97 @@ export default function TeamDetailScreen() {
             />
           )
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No updates yet</Text>
-            <Text style={styles.emptySubtext}>Team updates will appear here</Text>
+          <View style={{ flex: 1 }}>
+            <SearchFilterBar searchPlaceholder="Search updates..." onSearchChange={setSearchText} filterDate={filterDate} onDateChange={setFilterDate} />
+            {updatesLoading ? (
+              <ActivityIndicator style={styles.loading} size="large" />
+            ) : (
+              <FlatList
+                data={filteredUpdates}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.updateCard}
+                    onPress={() => {
+                      setSelectedUpdate({ ...item, timeStr: formatTime(item.created_at) });
+                      setShowUpdateDetailModal(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.updateCardTitle}>{item.title}</Text>
+                      <Text style={styles.updateCardContent} numberOfLines={2}>{item.content}</Text>
+                      <Text style={styles.updateCardAuthor}>{item.members?.full_name || item.members?.email} · {formatTime(item.created_at)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={<Text style={styles.emptyText}>No updates yet</Text>}
+                contentContainerStyle={filteredUpdates.length === 0 ? styles.emptyContainerStyle : styles.listContent}
+              />
+            )}
+            <TouchableOpacity style={styles.fabBlue} onPress={() => setShowAddUpdateModal(true)} activeOpacity={0.8}>
+              <Text style={styles.fabText}>+</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
+
+      <Modal visible={showAddUpdateModal} transparent animationType="fade" onRequestClose={() => setShowAddUpdateModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowAddUpdateModal(false)}>
+          <View style={styles.modalContainerSmall}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>New Update</Text>
+                <TouchableOpacity onPress={() => setShowAddUpdateModal(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Title *"
+                placeholderTextColor="#9CA3AF"
+                value={newUpdateTitle}
+                onChangeText={setNewUpdateTitle}
+              />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Description *"
+                placeholderTextColor="#9CA3AF"
+                value={newUpdateContent}
+                onChangeText={setNewUpdateContent}
+                multiline
+              />
+              <View style={styles.modalFooter}>
+                <Button title="Cancel" onPress={() => setShowAddUpdateModal(false)} variant="secondary" />
+                <Button title="Post" onPress={submitUpdate} loading={sendingUpdate} variant="primary" />
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showUpdateDetailModal} transparent animationType="fade" onRequestClose={() => setShowUpdateDetailModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowUpdateDetailModal(false)}>
+          <View style={styles.modalContainerSmall}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{selectedUpdate?.title || "Update"}</Text>
+                <TouchableOpacity onPress={() => setShowUpdateDetailModal(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {selectedUpdate && (
+                <>
+                  <Text style={styles.detailContent}>{selectedUpdate.content}</Text>
+                  <Text style={styles.detailMeta}>
+                    Posted by {selectedUpdate.members?.full_name || selectedUpdate.members?.email || "Unknown"} · {selectedUpdate.timeStr}
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={showInfoModal} transparent animationType="fade" onRequestClose={closeInfoModal}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeInfoModal}>
@@ -507,4 +661,22 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#F3F4F6", padding: 14, borderRadius: 10, fontSize: 15, color: "#111827", marginBottom: 10 },
   textArea: { minHeight: 80, textAlignVertical: "top" },
   validationText: { fontSize: 12, color: "#EF4444", marginTop: -6, marginBottom: 10 },
+
+  updateCard: {
+    backgroundColor: "#fff", borderRadius: 12, padding: 16, marginHorizontal: 16, marginVertical: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1,
+  },
+  updateCardTitle: { fontSize: 15, color: "#111827", fontWeight: "600", marginBottom: 4 },
+  updateCardContent: { fontSize: 14, color: "#6B7280", lineHeight: 18 },
+  updateCardAuthor: { fontSize: 12, color: "#9CA3AF", marginTop: 6 },
+  fabBlue: {
+    position: "absolute", bottom: 20, right: 20,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: "#2563EB",
+    justifyContent: "center", alignItems: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5,
+  },
+  fabText: { color: "#fff", fontSize: 28, fontWeight: "300", lineHeight: 30 },
+  emptyContainerStyle: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
+  detailContent: { fontSize: 15, color: "#374151", lineHeight: 22, marginBottom: 16 },
+  detailMeta: { fontSize: 13, color: "#6B7280", marginTop: 4 },
 });

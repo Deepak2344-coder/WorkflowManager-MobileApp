@@ -79,6 +79,14 @@ export default function CommonDashboard() {
   const [updatesLoading, setUpdatesLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
+  const [selectedUpdate, setSelectedUpdate] = useState<(TaskUpdate & { timeStr: string }) | null>(null);
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
   const filteredTasks = useMemo(() => {
     let list = tasks;
@@ -439,7 +447,7 @@ export default function CommonDashboard() {
             renderItem={({ item }) => {
               const isOwner = user?.id === item.posted_by;
               return (
-              <TouchableOpacity style={styles.updateCard} onPress={() => markUpdateSeen(item.id)} onLongPress={isOwner ? () => confirmDeleteUpdate(item.id) : undefined} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.updateCard} onPress={() => { markUpdateSeen(item.id); setSelectedUpdate({ ...item, timeStr: formatTime(item.created_at) }); setShowUpdateDetailModal(true); }} onLongPress={isOwner ? () => confirmDeleteUpdate(item.id) : undefined} activeOpacity={0.7}>
                 <View style={styles.updateCardRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.updateTask}>{item.title}</Text>
@@ -462,6 +470,29 @@ export default function CommonDashboard() {
           />
         </View>
       )}
+
+      <Modal visible={showUpdateDetailModal} transparent animationType="fade" onRequestClose={() => setShowUpdateDetailModal(false)}>
+        <ScrollView style={styles.modalOverlay} contentContainerStyle={styles.modalCenter}>
+          <TouchableOpacity activeOpacity={1} onPress={() => setShowUpdateDetailModal(false)}>
+            <View style={styles.assignModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{selectedUpdate?.title || "Update"}</Text>
+                <TouchableOpacity onPress={() => setShowUpdateDetailModal(false)} style={{ padding: 4 }}>
+                  <Text style={{ fontSize: 22, color: "#9CA3AF" }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {selectedUpdate && (
+                <>
+                  <Text style={styles.detailContent}>{selectedUpdate.content}</Text>
+                  <Text style={styles.detailMeta}>
+                    Posted by {selectedUpdate.members?.full_name || selectedUpdate.members?.email || "Unknown"} · {selectedUpdate.timeStr}
+                  </Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      </Modal>
 
       <Modal visible={showAssignModal} transparent animationType="fade" onRequestClose={() => setShowAssignModal(false)}>
         <ScrollView style={styles.modalOverlay} contentContainerStyle={styles.modalCenter}>
@@ -556,7 +587,13 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)" },
   modalCenter: { justifyContent: "center", padding: 24, flexGrow: 1 },
   assignModal: { backgroundColor: "#fff", borderRadius: 16, padding: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8 },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  modalHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB",
+  },
+  detailContent: { fontSize: 15, color: "#374151", lineHeight: 22, marginBottom: 16 },
+  detailMeta: { fontSize: 13, color: "#6B7280", marginTop: 4 },
   input: { backgroundColor: "#F3F4F6", padding: 14, borderRadius: 10, fontSize: 15, color: "#111827", marginBottom: 10 },
   textArea: { minHeight: 80, textAlignVertical: "top" },
   assignActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
