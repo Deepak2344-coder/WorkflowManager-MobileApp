@@ -123,7 +123,6 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
                 </View>
                 <View style={styles.teamInfo}>
                   <Text style={styles.teamName}>{item.name}</Text>
-                  <Text style={styles.teamMeta}>{item.member_count} member{item.member_count !== 1 ? "s" : ""}</Text>
                 </View>
               </View>
               <Text style={styles.chevron}>›</Text>
