@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, Platform } from "react-native";
-import { supabase, removeTeamMember } from "../lib/supabase";
+import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, Modal } from "react-native";
+import { supabase, removeTeamMember, deleteTeam } from "../lib/supabase";
 import Button from "../components/Button";
+import ErrorBanner from "../components/ErrorBanner";
 
 interface TeamRequest {
   id: string;
@@ -27,6 +28,14 @@ export default function AdminPanel() {
   const [teamRequests, setTeamRequests] = useState<TeamRequest[]>([]);
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmAction, setConfirmAction] = useState<(() => Promise<void>) | null>(null);
+  const [confirmLabel, setConfirmLabel] = useState("Confirm");
+  const [confirming, setConfirming] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -73,7 +82,7 @@ export default function AdminPanel() {
     const { error: memberErr } = await supabase.from("team_members").insert({ member_id: request.requested_by, team_id: newTeam.id });
     if (memberErr) return Alert.alert("Member Add Error", memberErr.message);
 
-    Alert.alert("Approved", `Team "${teamName}" created and member added.`);
+    setSuccessMessage(`Team "${teamName}" created and member added.`);
     fetchAll();
   };
 
@@ -82,18 +91,50 @@ export default function AdminPanel() {
     if (error) Alert.alert("Error", error.message); else fetchAll();
   };
 
-  const removeMember = async (memberId: string, teamId: string) => {
-    Alert.alert("Remove Member", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove", style: "destructive",
-        onPress: async () => {
-          const { error } = await removeTeamMember(memberId, teamId);
-          if (error) return Alert.alert("Remove Error", error);
-          fetchAll();
-        },
-      },
-    ]);
+  const removeMember = (memberId: string, teamId: string) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setConfirmTitle("Remove Member");
+    setConfirmMessage("Are you sure you want to remove this member from the team?");
+    setConfirmLabel("Remove");
+    setConfirmAction(() => async () => {
+      const { error } = await removeTeamMember(memberId, teamId);
+      if (error) { setErrorMessage(error); return; }
+      setSuccessMessage("Member removed successfully");
+      fetchAll();
+    });
+    setConfirmVisible(true);
+  };
+
+  const handleDeleteTeam = (teamId: string, teamName: string) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setConfirmTitle("Delete Team");
+    setConfirmMessage(`Are you sure you want to permanently delete "${teamName}"?\n\nAll team members will be removed and all related tasks and updates will be deleted.`);
+    setConfirmLabel("Delete");
+    setConfirmAction(() => async () => {
+      const { error } = await deleteTeam(teamId);
+      if (error) { setErrorMessage(error); return; }
+      setSuccessMessage("Team deleted successfully");
+      fetchAll();
+    });
+    setConfirmVisible(true);
+  };
+
+  useEffect(() => {
+    if (errorMessage || successMessage) {
+      const timer = setTimeout(() => { setErrorMessage(null); setSuccessMessage(null); }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage, successMessage]);
+
+  const runConfirm = async () => {
+    if (!confirmAction) return;
+    setConfirming(true);
+    await confirmAction();
+    setConfirming(false);
+    setConfirmVisible(false);
+    setConfirmAction(null);
   };
 
   if (Platform.OS !== "web") {
@@ -108,6 +149,9 @@ export default function AdminPanel() {
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
       <Text style={styles.heading}>Admin Panel</Text>
       <Button title="Refresh" onPress={fetchAll} variant="secondary" />
+
+      {errorMessage && <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage(null)} />}
+      {successMessage && <ErrorBanner message={successMessage} type="success" onDismiss={() => setSuccessMessage(null)} />}
 
       <Text style={styles.sectionTitle}>Team Creation Requests ({teamRequests.length})</Text>
       {teamRequests.length === 0 && <Text style={styles.emptyText}>No pending requests</Text>}
@@ -125,7 +169,12 @@ export default function AdminPanel() {
       <Text style={styles.sectionTitle}>Teams & Members</Text>
       {teams.map((team) => (
         <View key={team.id} style={styles.card}>
-          <Text style={styles.cardTitle}>{team.name}</Text>
+          <View style={styles.teamCardHeader}>
+            <Text style={styles.cardTitle}>{team.name}</Text>
+            <TouchableOpacity style={styles.deleteTeamBtn} onPress={() => handleDeleteTeam(team.id, team.name)}>
+              <Text style={styles.deleteTeamBtnText}>Delete Team</Text>
+            </TouchableOpacity>
+          </View>
           {(!team.team_members || team.team_members.length === 0) && (
             <Text style={styles.emptyText}>No members</Text>
           )}
@@ -140,6 +189,19 @@ export default function AdminPanel() {
           ))}
         </View>
       ))}
+
+      <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setConfirmVisible(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.confirmTitle}>{confirmTitle}</Text>
+            <Text style={styles.confirmMessage}>{confirmMessage}</Text>
+            <View style={styles.confirmActions}>
+              <Button title="Cancel" onPress={() => setConfirmVisible(false)} variant="secondary" />
+              <Button title={confirmLabel} onPress={runConfirm} variant="danger" loading={confirming} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -161,6 +223,13 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardTitle: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  teamCardHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  },
+  deleteTeamBtn: {
+    backgroundColor: "#DC2626", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+  },
+  deleteTeamBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   cardSub: { fontSize: 13, color: "#6B7280", marginTop: 2, marginBottom: 10 },
   row: { flexDirection: "row", gap: 10 },
   memberRow: {
@@ -176,4 +245,9 @@ const styles = StyleSheet.create({
   memberName: { fontSize: 14, fontWeight: "600", color: "#111827" },
   memberEmail: { fontSize: 12, color: "#6B7280", marginTop: 1 },
   emptyText: { fontSize: 14, color: "#9CA3AF", marginVertical: 4 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
+  modalCard: { backgroundColor: "#fff", borderRadius: 16, padding: 24, maxWidth: 400, alignSelf: "center", width: "100%" },
+  confirmTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 12 },
+  confirmMessage: { fontSize: 15, color: "#6B7280", lineHeight: 22, marginBottom: 20 },
+  confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
 });

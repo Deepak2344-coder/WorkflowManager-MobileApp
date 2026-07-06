@@ -56,3 +56,7 @@ export async function deleteNotice(noticeId: string): Promise<{ error?: string }
 export async function deleteUpdate(updateId: string): Promise<{ error?: string }> {
   return callAdmin("delete_update", { updateId });
 }
+
+export async function deleteTeam(teamId: string): Promise<{ error?: string }> {
+  return callAdmin("delete_team", { teamId });
+}
