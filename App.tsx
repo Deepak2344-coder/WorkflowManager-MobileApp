@@ -14,7 +14,6 @@ import CommonDashboard from "./src/screens/CommonDashboard";
 import TaskHistory from "./src/screens/TaskHistory";
 import AdminPanel from "./src/screens/AdminPanel";
 import HamburgerMenu from "./src/components/HamburgerMenu";
-import DevMenu from "./src/components/DevMenu";
 import { usePushNotifications } from "./src/hooks/usePushNotifications";
 import { supabase } from "./src/lib/supabase";
 import UsernamePrompt from "./src/screens/UsernamePrompt";
@@ -25,7 +24,7 @@ const Tab = createBottomTabNavigator();
 function MainTabs() {
   return (
     <Tab.Navigator screenOptions={{ headerRight: () => <HamburgerMenu /> }}>
-      <Tab.Screen name="Dashboard" component={Dashboard} options={{ headerTitle: () => <DevMenu /> }} />
+      <Tab.Screen name="Dashboard" component={Dashboard} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Common" component={CommonDashboard} options={{ title: "All Tasks" }} />
       <Tab.Screen name="MyTeams" component={MyTeamsScreen} options={{ title: "My Teams" }} />
       <Tab.Screen name="History" component={TaskHistory} options={{ title: "Task History" }} />
