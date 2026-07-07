@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { View, FlatList, Text, StyleSheet, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 interface Team {
   id: string;
@@ -16,7 +16,11 @@ export default function CommonDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTasksOverview, setActiveTasksOverview] = useState<{ id: string; assigned_team_id: string; status: string }[]>([]);
   const [teamUpdatesOverview, setTeamUpdatesOverview] = useState<{ id: string; assigned_team_id: string }[]>([]);
+  const [viewedTaskIds, setViewedTaskIds] = useState<Set<string>>(new Set());
+  const [viewedUpdateIds, setViewedUpdateIds] = useState<Set<string>>(new Set());
 
+  const teamUnseenTasks: Record<string, number> = {};
+  const teamUnseenUpdates: Record<string, number> = {};
   const teamPending: Record<string, number> = {};
   const teamInProgress: Record<string, number> = {};
   const teamRejected: Record<string, number> = {};
@@ -24,7 +28,11 @@ export default function CommonDashboard() {
     const tid = t.assigned_team_id;
     if (t.status === "in_progress") teamInProgress[tid] = (teamInProgress[tid] || 0) + 1;
     if (t.status === "pending") teamPending[tid] = (teamPending[tid] || 0) + 1;
-    if (t.status === "rejected") teamRejected[tid] = (teamRejected[tid] || 0) + 1;
+    if (t.status === "rejected" && !viewedTaskIds.has(t.id)) teamRejected[tid] = (teamRejected[tid] || 0) + 1;
+    if (!viewedTaskIds.has(t.id)) teamUnseenTasks[tid] = (teamUnseenTasks[tid] || 0) + 1;
+  }
+  for (const u of teamUpdatesOverview) {
+    if (!viewedUpdateIds.has(u.id)) teamUnseenUpdates[u.assigned_team_id] = (teamUnseenUpdates[u.assigned_team_id] || 0) + 1;
   }
 
   const fetchOverview = async () => {
@@ -37,15 +45,29 @@ export default function CommonDashboard() {
     setTeamUpdatesOverview((updatesData ?? []).map((u: any) => ({ id: u.id, assigned_team_id: u.team_id })));
   };
 
+  const fetchViewedInfo = async () => {
+    if (!user?.id) return;
+    const { data: tv } = await supabase.from("task_views").select("task_id").eq("member_id", user.id);
+    setViewedTaskIds(new Set((tv ?? []).map((r: any) => r.task_id)));
+    const { data: uv } = await supabase.from("update_views").select("update_id").eq("member_id", user.id);
+    setViewedUpdateIds(new Set((uv ?? []).map((r: any) => r.update_id)));
+  };
+
   const fetchTeams = async () => {
     setLoading(true);
     const { data } = await supabase.from("teams").select("id, name").order("name");
     setTeams((data ?? []) as Team[]);
-    await fetchOverview();
+    await Promise.all([fetchOverview(), fetchViewedInfo()]);
     setLoading(false);
   };
 
   useEffect(() => { fetchTeams(); }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) { fetchOverview(); fetchViewedInfo(); }
+    }, [loading])
+  );
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
 
@@ -59,13 +81,27 @@ export default function CommonDashboard() {
           const pending = teamPending[item.id] || 0;
           const inProg = teamInProgress[item.id] || 0;
           const rejected = teamRejected[item.id] || 0;
+          const unseenTasks = teamUnseenTasks[item.id] || 0;
+          const unseenUpdates = teamUnseenUpdates[item.id] || 0;
           return (
             <TouchableOpacity
               style={styles.teamCard}
               onPress={() => navigation.navigate("TeamTaskDetail", { teamId: item.id, teamName: item.name })}
             >
-              <View>
-                <Text style={styles.teamName}>{item.name}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={styles.teamCardRow}>
+                  <Text style={styles.teamName}>{item.name}</Text>
+                  {unseenTasks > 0 && (
+                    <View style={styles.badgeRed}>
+                      <Text style={styles.badgeText}>{unseenTasks}</Text>
+                    </View>
+                  )}
+                  {unseenUpdates > 0 && (
+                    <View style={styles.badgePurple}>
+                      <Text style={styles.badgeText}>{unseenUpdates}</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.teamCardMeta}>
                   {pending > 0 && <Text style={styles.teamCardMetaText}>{pending} pending acceptance</Text>}
                   {inProg > 0 && <Text style={styles.teamCardMetaText}>{inProg} in progress</Text>}
@@ -103,8 +139,18 @@ const styles = StyleSheet.create({
     elevation: 1,
     minHeight: 80,
   },
+  teamCardRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   teamName: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  teamCardMeta: { flexDirection: "row", gap: 12, marginTop: 6 },
+  badgeRed: {
+    backgroundColor: "#DC2626", minWidth: 20, height: 20, borderRadius: 10,
+    justifyContent: "center", alignItems: "center", paddingHorizontal: 5,
+  },
+  badgePurple: {
+    backgroundColor: "#8B5CF6", minWidth: 20, height: 20, borderRadius: 10,
+    justifyContent: "center", alignItems: "center", paddingHorizontal: 5,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  teamCardMeta: { flexDirection: "row", gap: 12, marginTop: 6, flexWrap: "wrap" },
   teamCardMetaText: { fontSize: 12, color: "#6B7280" },
   chevron: { fontSize: 20, color: "#9CA3AF" },
 

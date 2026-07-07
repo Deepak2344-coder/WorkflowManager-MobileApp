@@ -224,6 +224,7 @@ export default function TeamTaskDetailScreen() {
       .update({ status: "pending", claimed_by: null, accepted_at: null, rejected_by: null, rejected_at: null })
       .eq("id", taskId);
     if (error) return Alert.alert("Error", error.message);
+    notify("task", taskId, teamId);
     fetchTasks();
   };
 
