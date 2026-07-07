@@ -76,7 +76,7 @@ export default function AdminPanel() {
     const { error: reqErr } = await supabase.from("team_requests").update({ status: "approved" }).eq("id", id);
     if (reqErr) return Alert.alert("Update Error", reqErr.message);
 
-    const { data: newTeam, error: createErr } = await supabase.from("teams").insert({ name: teamName }).select("id").single();
+    const { data: newTeam, error: createErr } = await supabase.from("teams").insert({ name: teamName, admin_id: request.requested_by }).select("id").single();
     if (createErr) return Alert.alert("Team Create Error", createErr.message);
 
     const { error: memberErr } = await supabase.from("team_members").insert({ member_id: request.requested_by, team_id: newTeam.id });

@@ -84,6 +84,10 @@ export default function TeamDetailScreen() {
   const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<(TaskUpdate & { timeStr: string }) | null>(null);
 
+  const [teamAdminId, setTeamAdminId] = useState<string | null>(null);
+  const [showMemberActionModal, setShowMemberActionModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
   const filteredUpdates = useMemo(() => {
     let list = updates;
     if (searchText.trim()) {
@@ -165,7 +169,14 @@ export default function TeamDetailScreen() {
     return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  useEffect(() => { fetchMembers(); fetchTasks(); fetchUpdates(); }, [teamId, fetchTasks]);
+  const fetchTeamAdmin = async () => {
+    const { data } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+    if (data) setTeamAdminId(data.admin_id);
+  };
+
+  const isAdmin = user?.id === teamAdminId;
+
+  useEffect(() => { fetchMembers(); fetchTasks(); fetchUpdates(); fetchTeamAdmin(); }, [teamId, fetchTasks]);
 
   const openAcceptModal = (taskId: string) => {
     if (!user?.id) return;
@@ -242,6 +253,9 @@ export default function TeamDetailScreen() {
         onPress: async () => {
           if (!user?.id) return;
           setLeaving(true);
+          if (isAdmin) {
+            await supabase.from("teams").update({ admin_id: null }).eq("id", teamId);
+          }
           const { error } = await supabase
             .from("team_members")
             .delete()
@@ -487,19 +501,32 @@ export default function TeamDetailScreen() {
                 <FlatList
                   data={members}
                   keyExtractor={(item) => item.member_id}
-                  renderItem={({ item }) => (
-                    <View style={styles.memberRow}>
-                      <View style={styles.memberAvatar}>
-                        <Text style={styles.memberAvatarText}>
-                          {(item.members?.full_name || item.members?.email || "?").charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{item.members?.full_name || "Unknown"}</Text>
-                        <Text style={styles.memberEmail}>{item.members?.email || ""}</Text>
-                      </View>
-                    </View>
-                  )}
+                  renderItem={({ item }) => {
+                    const isItemAdmin = item.member_id === teamAdminId;
+                    const canManage = isAdmin && item.member_id !== user?.id;
+                    return (
+                      <TouchableOpacity
+                        style={styles.memberRow}
+                        onPress={canManage ? () => { setSelectedMember(item); setShowMemberActionModal(true); } : undefined}
+                        activeOpacity={canManage ? 0.6 : 1}
+                        disabled={!canManage}
+                      >
+                        <View style={styles.memberAvatar}>
+                          <Text style={styles.memberAvatarText}>
+                            {(item.members?.full_name || item.members?.email || "?").charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.memberInfo}>
+                          <View style={styles.memberNameRow}>
+                            <Text style={styles.memberName}>{item.members?.full_name || "Unknown"}</Text>
+                            {isItemAdmin && <Text style={styles.adminBadge}> 👑</Text>}
+                          </View>
+                          <Text style={styles.memberEmail}>{item.members?.email || ""}</Text>
+                        </View>
+                        {canManage && <Text style={styles.memberActionChevron}>›</Text>}
+                      </TouchableOpacity>
+                    );
+                  }}
                   ItemSeparatorComponent={() => <View style={styles.separator} />}
                 />
               )}
@@ -507,6 +534,56 @@ export default function TeamDetailScreen() {
               <View style={styles.modalFooter}>
                 <Button title="Exit Group" onPress={handleLeaveTeam} variant="danger" loading={leaving} fullWidth />
               </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showMemberActionModal} transparent animationType="fade" onRequestClose={() => setShowMemberActionModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMemberActionModal(false)}>
+          <View style={styles.modalContainerSmall}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{selectedMember?.members?.full_name || "Member"}</Text>
+                <TouchableOpacity onPress={() => setShowMemberActionModal(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={async () => {
+                  if (!selectedMember) return;
+                  setShowMemberActionModal(false);
+                  const { error } = await supabase.from("teams").update({ admin_id: selectedMember.member_id }).eq("id", teamId);
+                  if (error) { Alert.alert("Error", error.message); return; }
+                  setTeamAdminId(selectedMember.member_id);
+                  fetchMembers();
+                }}
+              >
+                <Text style={styles.actionRowIcon}>👑</Text>
+                <View style={styles.actionRowInfo}>
+                  <Text style={styles.actionRowLabel}>Make Admin</Text>
+                  <Text style={styles.actionRowDesc}>Transfer admin privileges to this member</Text>
+                </View>
+              </TouchableOpacity>
+              <View style={styles.actionDivider} />
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={async () => {
+                  if (!selectedMember) return;
+                  setShowMemberActionModal(false);
+                  const { error } = await supabase.from("team_members").delete()
+                    .eq("member_id", selectedMember.member_id).eq("team_id", teamId);
+                  if (error) { Alert.alert("Error", error.message); return; }
+                  fetchMembers();
+                }}
+              >
+                <Text style={styles.actionRowIconDanger}>✕</Text>
+                <View style={styles.actionRowInfo}>
+                  <Text style={styles.actionRowLabelDanger}>Remove from Group</Text>
+                  <Text style={styles.actionRowDesc}>Remove this member from the team</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
@@ -668,8 +745,22 @@ const styles = StyleSheet.create({
   },
   memberAvatarText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   memberInfo: { flex: 1 },
+  memberNameRow: { flexDirection: "row", alignItems: "center" },
   memberName: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  adminBadge: { fontSize: 16 },
   memberEmail: { fontSize: 13, color: "#6B7280", marginTop: 1 },
+  memberActionChevron: { fontSize: 22, color: "#9CA3AF", paddingLeft: 8 },
+
+  actionRow: {
+    flexDirection: "row", alignItems: "center", paddingVertical: 14,
+  },
+  actionRowIcon: { fontSize: 24, marginRight: 14, width: 32, textAlign: "center" },
+  actionRowIconDanger: { fontSize: 20, marginRight: 14, width: 32, textAlign: "center", color: "#EF4444", fontWeight: "700" },
+  actionRowInfo: { flex: 1 },
+  actionRowLabel: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  actionRowLabelDanger: { fontSize: 16, fontWeight: "600", color: "#EF4444" },
+  actionRowDesc: { fontSize: 13, color: "#6B7280", marginTop: 2 },
+  actionDivider: { height: 1, backgroundColor: "#F3F4F6" },
 
   separator: { height: 1, backgroundColor: "#F3F4F6", marginLeft: 52 },
 
