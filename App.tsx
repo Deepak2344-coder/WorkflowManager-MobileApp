@@ -9,6 +9,7 @@ import AuthScreen from "./src/screens/AuthScreen";
 import Dashboard from "./src/screens/Dashboard";
 import MyTeamsScreen from "./src/screens/MyTeamsScreen";
 import TeamDetailScreen from "./src/screens/TeamDetailScreen";
+import TeamTaskDetailScreen from "./src/screens/TeamTaskDetailScreen";
 import CommonDashboard from "./src/screens/CommonDashboard";
 import TaskHistory from "./src/screens/TaskHistory";
 import AdminPanel from "./src/screens/AdminPanel";
@@ -61,6 +62,7 @@ function RootNavigator() {
         {session && needsUsername && <Stack.Screen name="UsernamePrompt">{() => <UsernamePrompt onComplete={handleProfileSaved} />}</Stack.Screen>}
         {session && !needsUsername && <Stack.Screen name="Main" component={MainTabs} />}
         {session && !needsUsername && <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />}
+        {session && !needsUsername && <Stack.Screen name="TeamTaskDetail" component={TeamTaskDetailScreen} />}
       </Stack.Navigator>
     </NavigationContainer>
   );
