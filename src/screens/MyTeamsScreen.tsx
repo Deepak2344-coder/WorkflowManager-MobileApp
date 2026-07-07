@@ -184,7 +184,6 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
                         </View>
                         <View style={styles.browseTeamInfo}>
                           <Text style={styles.browseTeamName}>{item.name}</Text>
-                          <Text style={styles.browseTeamMeta}>{item.member_count} member{item.member_count !== 1 ? "s" : ""}</Text>
                         </View>
                       </View>
                       <Text style={styles.browseJoinText}>Join</Text>

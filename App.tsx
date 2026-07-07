@@ -26,8 +26,8 @@ function MainTabs() {
   return (
     <Tab.Navigator screenOptions={{ headerRight: () => <HamburgerMenu /> }}>
       <Tab.Screen name="Dashboard" component={Dashboard} options={{ headerTitle: () => <DevMenu /> }} />
-      <Tab.Screen name="MyTeams" component={MyTeamsScreen} options={{ title: "My Teams" }} />
       <Tab.Screen name="Common" component={CommonDashboard} options={{ title: "All Tasks" }} />
+      <Tab.Screen name="MyTeams" component={MyTeamsScreen} options={{ title: "My Teams" }} />
       <Tab.Screen name="History" component={TaskHistory} options={{ title: "Task History" }} />
       {Platform.OS === "web" && (
         <Tab.Screen name="Admin" component={AdminPanel} options={{ title: "Admin" }} />
