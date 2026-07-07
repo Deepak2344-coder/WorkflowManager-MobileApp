@@ -6,6 +6,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useProfile } from "../hooks/useProfile";
+import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
 
 interface Team {
@@ -80,13 +81,23 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
 
   const handleJoinTeam = async (teamId: string, teamName: string) => {
     if (!user?.id) return Alert.alert("Error", "Not authenticated");
-    const { error } = await supabase
-      .from("team_members")
-      .insert({ member_id: user.id, team_id: teamId });
-    if (error && error.code !== "23505") return Alert.alert("Error", error.message);
+    const { data: existing } = await supabase
+      .from("join_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("team_id", teamId)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (existing) { Alert.alert("Already Requested", "You have a pending join request for this team"); return; }
+    const { data: newRequest, error } = await supabase
+      .from("join_requests")
+      .insert({ user_id: user.id, team_id: teamId, status: "pending" })
+      .select("id")
+      .single();
+    if (error) return Alert.alert("Error", error.message);
     setShowBrowseModal(false);
-    await refetchProfile();
-    loadData();
+    notify("join_request", newRequest.id, teamId);
+    Alert.alert("Request Sent", "Your request to join the team has been sent to the admin for approval.");
   };
 
   const handleRefresh = useCallback(() => { setRefreshing(true); loadData(); }, [loadData]);

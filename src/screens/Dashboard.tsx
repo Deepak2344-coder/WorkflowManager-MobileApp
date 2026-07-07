@@ -7,6 +7,16 @@ import Button from "../components/Button";
 import { notify } from "../hooks/usePushNotifications";
 import SearchFilterBar from "../components/SearchFilterBar";
 
+interface JoinRequest {
+  id: string;
+  user_id: string;
+  team_id: string;
+  status: string;
+  created_at: string | null;
+  teams: { name: string } | null;
+  members: { email: string; full_name: string } | null;
+}
+
 interface Notice {
   id: string;
   title: string;
@@ -29,6 +39,9 @@ export default function Dashboard() {
   const [sendingNotice, setSendingNotice] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   const filteredNotices = useMemo(() => {
     let list = notices;
@@ -56,7 +69,38 @@ export default function Dashboard() {
     setFetchingNotices(false);
   };
 
-  useEffect(() => { fetchNotices(); }, []);
+  useEffect(() => { fetchNotices(); fetchJoinRequests(); }, []);
+
+  const fetchJoinRequests = async () => {
+    if (!user?.id) return;
+    setJoinRequestsLoading(true);
+    const { data: myTeams } = await supabase.from("teams").select("id").eq("admin_id", user.id);
+    const myTeamIds = (myTeams ?? []).map((t: { id: string }) => t.id);
+    if (myTeamIds.length === 0) { setJoinRequests([]); setJoinRequestsLoading(false); return; }
+    const { data } = await supabase
+      .from("join_requests")
+      .select("id, user_id, team_id, status, created_at, members!inner(full_name, email), teams!inner(name)")
+      .in("team_id", myTeamIds)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setJoinRequests((data ?? []) as JoinRequest[]);
+    setJoinRequestsLoading(false);
+  };
+
+  const approveJoin = async (req: JoinRequest) => {
+    setApprovingId(req.id);
+    await supabase.from("team_members").insert({ member_id: req.user_id, team_id: req.team_id });
+    await supabase.from("join_requests").update({ status: "approved" }).eq("id", req.id);
+    setApprovingId(null);
+    fetchJoinRequests();
+  };
+
+  const rejectJoin = async (req: JoinRequest) => {
+    setApprovingId(req.id);
+    await supabase.from("join_requests").update({ status: "rejected" }).eq("id", req.id);
+    setApprovingId(null);
+    fetchJoinRequests();
+  };
 
   const markNoticeSeen = async (noticeId: string) => {
     if (!user?.id || viewedNoticeIds.has(noticeId)) return;
@@ -103,6 +147,43 @@ export default function Dashboard() {
               <Text style={styles.welcomeTitle}>Welcome{profile?.full_name ? `, ${profile?.full_name?.split(" ")[0]}` : ""}!</Text>
               <Text style={styles.welcomeDesc}>Use the ☰ menu to view your profile, create a team, or manage your account.</Text>
             </View>
+
+            {joinRequests.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Join Requests</Text>
+                  <View style={styles.pendingBadge}>
+                    <Text style={styles.pendingBadgeText}>{joinRequests.length}</Text>
+                  </View>
+                </View>
+                {joinRequests.map((req) => (
+                  <View key={req.id} style={styles.joinCard}>
+                    <View style={styles.joinCardInfo}>
+                      <Text style={styles.joinTeamName}>{req.teams?.name || "Team"}</Text>
+                      <Text style={styles.joinUserName}>{req.members?.full_name || req.members?.email || "Unknown"}</Text>
+                      <Text style={styles.joinDate}>{new Date(req.created_at || "").toLocaleDateString()}</Text>
+                    </View>
+                    <View style={styles.joinActions}>
+                      <TouchableOpacity
+                        style={styles.approveBtn}
+                        onPress={() => approveJoin(req)}
+                        disabled={approvingId === req.id}
+                      >
+                        <Text style={styles.approveBtnText}>{approvingId === req.id ? "..." : "Approve"}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.rejectBtn}
+                        onPress={() => rejectJoin(req)}
+                        disabled={approvingId === req.id}
+                      >
+                        <Text style={styles.rejectBtnText}>Reject</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
             <SearchFilterBar searchPlaceholder="Search notices..." onSearchChange={setSearchText} filterDate={filterDate} onDateChange={setFilterDate} />
             <View style={styles.noticesHeader}>
               <Text style={styles.noticesTitle}>Notices</Text>
@@ -188,7 +269,26 @@ const styles = StyleSheet.create({
   welcomeTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
   welcomeDesc: { fontSize: 14, color: "#6B7280", textAlign: "center", lineHeight: 20 },
 
-  noticesHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  pendingBadge: { backgroundColor: "#F59E0B", minWidth: 20, height: 20, borderRadius: 10, justifyContent: "center", alignItems: "center", paddingHorizontal: 5 },
+  pendingBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+
+  joinCard: {
+    backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 8,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  },
+  joinCardInfo: { marginBottom: 12 },
+  joinTeamName: { fontSize: 15, fontWeight: "700", color: "#2563EB", marginBottom: 2 },
+  joinUserName: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  joinDate: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
+  joinActions: { flexDirection: "row", gap: 10 },
+  approveBtn: { flex: 1, backgroundColor: "#10B981", borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+  approveBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  rejectBtn: { flex: 1, backgroundColor: "#EF4444", borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+  rejectBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+
+  noticesHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, marginTop: 8 },
   noticesTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
   unseenBadge: { backgroundColor: "#DC2626", minWidth: 20, height: 20, borderRadius: 10, justifyContent: "center", alignItems: "center", paddingHorizontal: 5 },
   unseenBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },

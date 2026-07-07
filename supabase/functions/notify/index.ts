@@ -65,7 +65,18 @@ serve(async (req) => {
 
     let memberIds: string[] | null = null;
 
-    if (team_id) {
+    if (type === "join_request" && team_id) {
+      const { data: team } = await supabase
+        .from("teams")
+        .select("admin_id")
+        .eq("id", team_id)
+        .single();
+      if (team?.admin_id) memberIds = [team.admin_id];
+      else {
+        console.log("no admin for team", team_id);
+        return jsonResponse({ sent: 0, failed: 0 }, 200);
+      }
+    } else if (team_id) {
       const { data: members } = await supabase
         .from("team_members")
         .select("member_id")
@@ -124,6 +135,24 @@ serve(async (req) => {
       if (tErr) console.error("task fetch error:", tErr);
       title = "New Task Assigned";
       body = task?.title || "A new task was assigned";
+    } else if (type === "join_request") {
+      const { data: jr, error: jErr } = await supabase
+        .from("join_requests")
+        .select("user_id, teams!inner(name)")
+        .eq("id", record_id)
+        .single();
+      if (jErr) console.error("join_request fetch error:", jErr);
+      let requesterName = "Someone";
+      if (jr?.user_id) {
+        const { data: member } = await supabase
+          .from("members")
+          .select("full_name")
+          .eq("id", jr.user_id)
+          .single();
+        if (member?.full_name) requesterName = member.full_name;
+      }
+      title = "Join Request";
+      body = `${requesterName} wants to join ${jr ? (jr as any).teams?.name : "your team"}`;
     }
 
     const privateKey = sa.private_key;

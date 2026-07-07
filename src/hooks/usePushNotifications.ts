@@ -67,7 +67,7 @@ export function usePushNotifications() {
   }, [user]);
 }
 
-export async function notify(type: "notice" | "update" | "task", record_id: string, team_id?: string) {
+export async function notify(type: "notice" | "update" | "task" | "join_request", record_id: string, team_id?: string) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) { console.log("notify: no session"); return; }
