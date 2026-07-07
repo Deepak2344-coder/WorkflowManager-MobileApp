@@ -91,6 +91,7 @@ export default function Dashboard() {
     setApprovingId(req.id);
     await supabase.from("team_members").insert({ member_id: req.user_id, team_id: req.team_id });
     await supabase.from("join_requests").update({ status: "approved" }).eq("id", req.id);
+    notify("request_approved", req.id, req.team_id);
     setApprovingId(null);
     fetchJoinRequests();
   };
@@ -98,6 +99,7 @@ export default function Dashboard() {
   const rejectJoin = async (req: JoinRequest) => {
     setApprovingId(req.id);
     await supabase.from("join_requests").update({ status: "rejected" }).eq("id", req.id);
+    notify("request_rejected", req.id, req.team_id);
     setApprovingId(null);
     fetchJoinRequests();
   };

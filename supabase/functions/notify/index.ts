@@ -65,7 +65,7 @@ serve(async (req) => {
 
     let memberIds: string[] | null = null;
 
-    if (type === "join_request" && team_id) {
+    if ((type === "join_request") && team_id) {
       const { data: team } = await supabase
         .from("teams")
         .select("admin_id")
@@ -74,6 +74,17 @@ serve(async (req) => {
       if (team?.admin_id) memberIds = [team.admin_id];
       else {
         console.log("no admin for team", team_id);
+        return jsonResponse({ sent: 0, failed: 0 }, 200);
+      }
+    } else if ((type === "request_approved" || type === "request_rejected") && record_id) {
+      const { data: jr } = await supabase
+        .from("join_requests")
+        .select("user_id")
+        .eq("id", record_id)
+        .single();
+      if (jr?.user_id) memberIds = [jr.user_id];
+      else {
+        console.log("no user for join_request", record_id);
         return jsonResponse({ sent: 0, failed: 0 }, 200);
       }
     } else if (team_id) {
@@ -153,6 +164,24 @@ serve(async (req) => {
       }
       title = "Join Request";
       body = `${requesterName} wants to join ${jr ? (jr as any).teams?.name : "your team"}`;
+    } else if (type === "request_approved") {
+      const { data: jr, error: jErr } = await supabase
+        .from("join_requests")
+        .select("teams!inner(name)")
+        .eq("id", record_id)
+        .single();
+      if (jErr) console.error("request_approved fetch error:", jErr);
+      title = "Request Approved";
+      body = `Your request to join ${jr ? (jr as any).teams?.name : "the team"} was approved!`;
+    } else if (type === "request_rejected") {
+      const { data: jr, error: jErr } = await supabase
+        .from("join_requests")
+        .select("teams!inner(name)")
+        .eq("id", record_id)
+        .single();
+      if (jErr) console.error("request_rejected fetch error:", jErr);
+      title = "Request Rejected";
+      body = `Your request to join ${jr ? (jr as any).teams?.name : "the team"} was rejected.`;
     }
 
     const privateKey = sa.private_key;
