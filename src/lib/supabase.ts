@@ -2,9 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 
-export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-export const SUPABASE_PROJECT_REF = process.env.EXPO_PUBLIC_SUPABASE_PROJECT_REF!;
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+export const SUPABASE_PROJECT_REF = process.env.EXPO_PUBLIC_SUPABASE_PROJECT_REF ?? "";
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables");
+}
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
