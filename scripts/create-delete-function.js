@@ -1,10 +1,14 @@
 const { createClient } = require("@supabase/supabase-js");
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 if (!SERVICE_ROLE_KEY) {
-  console.error("Missing SUPABASE_SERVICE_ROLE_KEY env variable");
+  console.error("Missing SUPABASE_SERVICE_ROLE_KEY — must be set in environment");
+  process.exit(1);
+}
+if (!SUPABASE_URL) {
+  console.error("Missing SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL — must be set in environment");
   process.exit(1);
 }
 
