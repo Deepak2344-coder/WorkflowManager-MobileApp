@@ -67,15 +67,21 @@ export function usePushNotifications() {
   }, [user]);
 }
 
+const FETCH_TIMEOUT = 15_000;
+
 export async function notify(type: "notice" | "update" | "task" | "join_request" | "request_approved" | "request_rejected", record_id: string, team_id?: string) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) { console.log("notify: no session"); return; }
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ type, record_id, team_id }),
+      signal: controller.signal,
     });
+    clearTimeout(id);
     const text = await res.text();
     if (!res.ok) {
       console.error("notify error:", text);

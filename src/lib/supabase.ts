@@ -19,10 +19,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   },
 });
 
+const FETCH_TIMEOUT = 15_000;
+
 async function callAdmin(action: string, payload: Record<string, unknown>): Promise<{ error?: string }> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return { error: "Not authenticated" };
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin`, {
       method: "POST",
       headers: {
@@ -30,7 +34,9 @@ async function callAdmin(action: string, payload: Record<string, unknown>): Prom
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ action, payload }),
+      signal: controller.signal,
     });
+    clearTimeout(id);
     if (!res.ok) {
       const body = await res.text();
       return { error: body || `HTTP ${res.status}` };
