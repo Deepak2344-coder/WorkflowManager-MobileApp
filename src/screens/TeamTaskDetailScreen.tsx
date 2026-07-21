@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { View, FlatList, Text, StyleSheet, RefreshControl, ActivityIndicator, Alert, TouchableOpacity, Modal, TextInput, ScrollView, Platform } from "react-native";
+import { View, FlatList, Text, StyleSheet, RefreshControl, Alert, TouchableOpacity, Modal, TextInput, ScrollView, Platform } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { supabase, deleteUpdate } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";

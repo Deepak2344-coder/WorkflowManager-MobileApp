@@ -5,7 +5,6 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { useProfile } from "../hooks/useProfile";
 import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
 
@@ -17,7 +16,6 @@ interface Team {
 
 export default function MyTeamsScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
-  const { refetchProfile } = useProfile();
 
   const [myTeams, setMyTeams] = useState<Team[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
