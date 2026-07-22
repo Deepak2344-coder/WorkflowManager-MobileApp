@@ -43,7 +43,7 @@ async function callAdmin(action: string, payload: Record<string, unknown>): Prom
     }
     return {};
   } catch (e: any) {
-    return { error: e.message };
+    return { error: e.name === "AbortError" ? "Request timed out" : e.message };
   }
 }
 

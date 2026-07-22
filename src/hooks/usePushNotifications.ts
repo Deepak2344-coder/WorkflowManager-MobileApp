@@ -90,7 +90,8 @@ export async function notify(type: "notice" | "update" | "task" | "join_request"
       console.log("notify response:", text);
     }
   } catch (e: any) {
-    console.error("notify fetch error:", e.message);
-    Alert.alert("Notification Error", `Failed to send: ${e.message}`);
+    const msg = e.name === "AbortError" ? "Request timed out" : e.message;
+    console.error("notify fetch error:", msg);
+    Alert.alert("Notification Error", `Failed to send: ${msg}`);
   }
 }
