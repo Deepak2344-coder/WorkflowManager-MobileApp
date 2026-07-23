@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
 
 interface TaskCardProps {
@@ -39,7 +39,7 @@ const statusLabels: Record<string, string> = {
   rejected: "Rejected",
 };
 
-export default function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, acceptedAt, acceptedByName, rejectedBy, rejectedByName, rejectedAt, createdAt, responseRemark, onOpen, onReassign, actionButtons }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ title, description, status, teamName, remarks, deadline, claimedByName, createdByName, startedByName, completedAt, assigneeNames, acceptedAt, acceptedByName, rejectedBy, rejectedByName, rejectedAt, createdAt, responseRemark, onOpen, onReassign, actionButtons }: TaskCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
   const openDetail = () => {
@@ -116,7 +116,9 @@ export default function TaskCard({ title, description, status, teamName, remarks
       </Modal>
     </>
   );
-}
+});
+
+export default TaskCard;
 
 const styles = StyleSheet.create({
   card: {
