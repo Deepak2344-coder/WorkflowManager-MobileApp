@@ -121,6 +121,8 @@ serve(async (req) => {
         await supabase.from("task_updates").delete().in("task_id", taskIds);
         await supabase.from("tasks").delete().in("id", taskIds);
       }
+      await supabase.from("join_requests").delete().eq("team_id", teamId);
+      await supabase.from("team_requests").delete().eq("team_id", teamId);
       await supabase.from("team_members").delete().eq("team_id", teamId);
       await supabase.from("teams").delete().eq("id", teamId);
       return jsonResponse({ ok: true }, 200);
