@@ -18,18 +18,22 @@ export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [teams, setTeams] = useState<TeamMembership[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data: p } = await supabase.from("members").select("id, email, full_name").eq("id", user.id).single();
+    setError(null);
+    const { data: p, error: profileErr } = await supabase.from("members").select("id, email, full_name").eq("id", user.id).single();
+    if (profileErr) { setError(profileErr.message); setLoading(false); return; }
     setProfile(p);
-    const { data: t } = await supabase.from("team_members").select("team_id, teams(name)").eq("member_id", user.id);
+    const { data: t, error: teamsErr } = await supabase.from("team_members").select("team_id, teams(name)").eq("member_id", user.id);
+    if (teamsErr) { setError(teamsErr.message); setLoading(false); return; }
     setTeams((t ?? []) as TeamMembership[]);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  return { profile, teams, team: teams[0] ?? null, loading, refetchProfile: fetchProfile };
+  return { profile, teams, team: teams[0] ?? null, loading, error, refetchProfile: fetchProfile };
 }
