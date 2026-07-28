@@ -60,7 +60,8 @@ export default function Dashboard() {
 
   const fetchNotices = async () => {
     setFetchingNotices(true);
-    const { data } = await supabase.from("notices").select("id, title, content, created_by, created_at, creator:members!created_by(full_name)").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("notices").select("id, title, content, created_by, created_at, creator:members!created_by(full_name)").order("created_at", { ascending: false });
+    if (error) { console.error("fetchNotices:", error.message); setFetchingNotices(false); return; }
     setNotices((data ?? []) as Notice[]);
     if (user?.id) {
       const { data: views } = await supabase.from("notice_views").select("notice_id").eq("member_id", user.id);
@@ -74,7 +75,8 @@ export default function Dashboard() {
   const fetchJoinRequests = async () => {
     if (!user?.id) return;
     setJoinRequestsLoading(true);
-    const { data: myTeams } = await supabase.from("teams").select("id").eq("admin_id", user.id);
+    const { data: myTeams, error: teamsErr } = await supabase.from("teams").select("id").eq("admin_id", user.id);
+    if (teamsErr) { console.error("fetchJoinRequests:", teamsErr.message); setJoinRequestsLoading(false); return; }
     const myTeamIds = (myTeams ?? []).map((t: { id: string }) => t.id);
     if (myTeamIds.length === 0) { setJoinRequests([]); setJoinRequestsLoading(false); return; }
     const { data } = await supabase
