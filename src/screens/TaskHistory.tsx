@@ -53,11 +53,12 @@ export default function TaskHistory() {
 
   const fetchHistory = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tasks")
       .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, deadline, remarks, response_remark, created_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name)")
       .eq("status", "done")
       .order("created_at", { ascending: false });
+    if (error) { console.error("fetchHistory:", error.message); setLoading(false); return; }
     const taskList = (data ?? []) as Task[];
     setTasks(taskList);
 

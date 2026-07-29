@@ -9,7 +9,6 @@ async function retry<T extends { error?: any }>(fn: () => Promise<T>, retries = 
     const result = await fn();
     if (result && typeof result === "object" && "error" in result && !(result as any).error) return result;
     if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs));
-    if (i === retries - 1) return result;
   }
   return fn();
 }
