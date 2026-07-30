@@ -37,25 +37,30 @@ export default function CommonDashboard() {
 
   const fetchOverview = async () => {
     if (!user?.id) return;
-    const { data: taskData } = await supabase
+    const { data: taskData, error: tasksErr } = await supabase
       .from("tasks").select("id, assigned_team_id, status").neq("status", "done");
+    if (tasksErr) { console.error("fetchOverview tasks:", tasksErr.message); return; }
     setActiveTasksOverview((taskData ?? []) as { id: string; assigned_team_id: string; status: string }[]);
-    const { data: updatesData } = await supabase
+    const { data: updatesData, error: updatesErr } = await supabase
       .from("task_updates").select("id, team_id");
+    if (updatesErr) { console.error("fetchOverview updates:", updatesErr.message); return; }
     setTeamUpdatesOverview((updatesData ?? []).map((u: any) => ({ id: u.id, assigned_team_id: u.team_id })));
   };
 
   const fetchViewedInfo = async () => {
     if (!user?.id) return;
-    const { data: tv } = await supabase.from("task_views").select("task_id").eq("member_id", user.id);
+    const { data: tv, error: tvErr } = await supabase.from("task_views").select("task_id").eq("member_id", user.id);
+    if (tvErr) { console.error("fetchViewedInfo task_views:", tvErr.message); return; }
     setViewedTaskIds(new Set((tv ?? []).map((r: any) => r.task_id)));
-    const { data: uv } = await supabase.from("update_views").select("update_id").eq("member_id", user.id);
+    const { data: uv, error: uvErr } = await supabase.from("update_views").select("update_id").eq("member_id", user.id);
+    if (uvErr) { console.error("fetchViewedInfo update_views:", uvErr.message); return; }
     setViewedUpdateIds(new Set((uv ?? []).map((r: any) => r.update_id)));
   };
 
   const fetchTeams = async () => {
     setLoading(true);
-    const { data } = await supabase.from("teams").select("id, name").order("name");
+    const { data, error } = await supabase.from("teams").select("id, name").order("name");
+    if (error) { console.error("fetchTeams:", error.message); setLoading(false); return; }
     setTeams((data ?? []) as Team[]);
     await Promise.all([fetchOverview(), fetchViewedInfo()]);
     setLoading(false);
