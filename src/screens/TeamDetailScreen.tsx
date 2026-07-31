@@ -103,32 +103,35 @@ export default function TeamDetailScreen() {
 
   const fetchMembers = async () => {
     setLoadingMembers(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("team_members")
       .select("member_id, members(full_name, email)")
       .eq("team_id", teamId);
+    if (error) { console.error("fetchMembers:", error.message); setLoadingMembers(false); return; }
     setMembers((data ?? []) as Member[]);
     setLoadingMembers(false);
   };
 
   const fetchTasks = useCallback(async () => {
     setTasksLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tasks")
       .select("id, title, description, status, created_by, claimed_by, completed_at, created_at, deadline, remarks, response_remark, accepted_at, rejected_by, rejected_at, created_by_member:members!created_by(full_name), claimed_by_member:members!claimed_by(full_name), rejected_by_member:members!rejected_by(full_name)")
       .eq("assigned_team_id", teamId)
       .order("created_at", { ascending: false });
+    if (error) { console.error("fetchTasks:", error.message); setTasksLoading(false); return; }
     setTasks((data ?? []) as Task[]);
     setTasksLoading(false);
   }, [teamId]);
 
   const fetchUpdates = async () => {
     setUpdatesLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("task_updates")
       .select("id, title, content, created_at, posted_by, members!inner(full_name, email)")
       .eq("team_id", teamId)
       .order("created_at", { ascending: false });
+    if (error) { console.error("fetchUpdates:", error.message); setUpdatesLoading(false); return; }
     setUpdates((data ?? []) as TaskUpdate[]);
     setUpdatesLoading(false);
   };
@@ -170,7 +173,8 @@ export default function TeamDetailScreen() {
   };
 
   const fetchTeamAdmin = async () => {
-    const { data } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+    const { data, error } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+    if (error) { console.error("fetchTeamAdmin:", error.message); return; }
     if (data) setTeamAdminId(data.admin_id);
   };
 
