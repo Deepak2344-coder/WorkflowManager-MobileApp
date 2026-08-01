@@ -147,6 +147,7 @@ export default function Dashboard() {
       <FlatList
         data={filteredNotices}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View>
             <View style={styles.welcomeCard}>

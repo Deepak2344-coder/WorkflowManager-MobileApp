@@ -94,6 +94,7 @@ export default function TaskHistory() {
       <FlatList
         data={filteredTasks}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => {
           const members = allTeamMembers[item.assigned_team_id] || [];
           const ids = taskAssigneesMap[item.id];
