@@ -123,30 +123,35 @@ export default function TeamTaskDetailScreen() {
 
   const fetchTasks = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tasks")
       .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, created_at, confirmed, deadline, remarks, response_remark, accepted_at, rejected_by, rejected_at, teams!inner(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name), rejected_by_member:members!rejected_by(full_name)")
       .eq("assigned_team_id", teamId)
       .order("created_at", { ascending: false });
+    if (error) { console.error("fetchTasks:", error.message); setLoading(false); return; }
     setTasks((data ?? []) as Task[]);
     setLoading(false);
   };
 
   const fetchTeamMembers = async () => {
-    const { data } = await supabase.from("team_members").select("member_id, members(email, full_name)").eq("team_id", teamId);
+    const { data, error } = await supabase.from("team_members").select("member_id, members(email, full_name)").eq("team_id", teamId);
+    if (error) { console.error("fetchTeamMembers:", error.message); return; }
     setTeamMembers((data ?? []) as TeamMember[]);
   };
 
   const fetchTeamAdmin = async () => {
-    const { data } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+    const { data, error } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+    if (error) { console.error("fetchTeamAdmin:", error.message); return; }
     if (data) setTeamAdminId(data.admin_id);
   };
 
   const fetchTaskAssignees = async () => {
-    const { data: taskIds } = await supabase.from("tasks").select("id").eq("assigned_team_id", teamId);
+    const { data: taskIds, error: tasksErr } = await supabase.from("tasks").select("id").eq("assigned_team_id", teamId);
+    if (tasksErr) { console.error("fetchTaskAssignees tasks:", tasksErr.message); return; }
     const ids = (taskIds ?? []).map((t: { id: string }) => t.id);
     if (ids.length === 0) { setTaskAssigneesMap({}); return; }
-    const { data } = await supabase.from("task_assignees").select("task_id, member_id").in("task_id", ids);
+    const { data, error } = await supabase.from("task_assignees").select("task_id, member_id").in("task_id", ids);
+    if (error) { console.error("fetchTaskAssignees:", error.message); return; }
     const map: Record<string, string[]> = {};
     for (const a of (data ?? []) as { task_id: string; member_id: string }[]) {
       if (!map[a.task_id]) map[a.task_id] = [];
@@ -157,24 +162,27 @@ export default function TeamTaskDetailScreen() {
 
   const fetchUpdates = async () => {
     setUpdatesLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("task_updates")
       .select("id, title, content, created_at, posted_by, task_id, team_id, members!inner(email, full_name), tasks(title)")
       .eq("team_id", teamId)
       .order("created_at", { ascending: false });
+    if (error) { console.error("fetchUpdates:", error.message); setUpdatesLoading(false); return; }
     setUpdates((data ?? []) as TaskUpdate[]);
     setUpdatesLoading(false);
   };
 
   const fetchViewedTasks = async () => {
     if (!user?.id) return;
-    const { data } = await supabase.from("task_views").select("task_id").eq("member_id", user.id);
+    const { data, error } = await supabase.from("task_views").select("task_id").eq("member_id", user.id);
+    if (error) { console.error("fetchViewedTasks:", error.message); return; }
     setViewedTaskIds(new Set((data ?? []).map((r: { task_id: string }) => r.task_id)));
   };
 
   const fetchViewedUpdates = async () => {
     if (!user?.id) return;
-    const { data } = await supabase.from("update_views").select("update_id").eq("member_id", user.id);
+    const { data, error } = await supabase.from("update_views").select("update_id").eq("member_id", user.id);
+    if (error) { console.error("fetchViewedUpdates:", error.message); return; }
     setViewedUpdateIds(new Set((data ?? []).map((r: { update_id: string }) => r.update_id)));
   };
 
