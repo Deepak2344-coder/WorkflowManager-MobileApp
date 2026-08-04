@@ -23,6 +23,7 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
+  const [joiningTeamId, setJoiningTeamId] = useState<string | null>(null);
 
   const fetchMyTeams = useCallback(async (): Promise<Team[]> => {
     if (!user?.id) return [];
@@ -47,7 +48,8 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
   }, [user?.id]);
 
   const fetchAllTeams = useCallback(async () => {
-    const { data } = await supabase.from("teams").select("id, name").order("name");
+    const { data, error } = await supabase.from("teams").select("id, name").order("name");
+    if (error) { console.error("fetchAllTeams:", error.message); return []; }
     const teamsData = ((data ?? []) as { id: string; name: string }[]).map((t) => ({
       id: t.id,
       name: t.name,
@@ -79,23 +81,30 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
 
   const handleJoinTeam = async (teamId: string, teamName: string) => {
     if (!user?.id) return Alert.alert("Error", "Not authenticated");
-    const { data: existing } = await supabase
-      .from("join_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("team_id", teamId)
-      .eq("status", "pending")
-      .maybeSingle();
-    if (existing) { Alert.alert("Already Requested", "You have a pending join request for this team"); return; }
-    const { data: newRequest, error } = await supabase
-      .from("join_requests")
-      .insert({ user_id: user.id, team_id: teamId, status: "pending" })
-      .select("id")
-      .single();
-    if (error) return Alert.alert("Error", error.message);
-    setShowBrowseModal(false);
-    notify("join_request", newRequest.id, teamId);
-    Alert.alert("Request Sent", "Your request to join the team has been sent to the admin for approval.");
+    if (joiningTeamId) return;
+    setJoiningTeamId(teamId);
+    try {
+      const { data: existing, error: checkErr } = await supabase
+        .from("join_requests")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("team_id", teamId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (checkErr) { console.error("handleJoinTeam check:", checkErr.message); return; }
+      if (existing) { Alert.alert("Already Requested", "You have a pending join request for this team"); return; }
+      const { data: newRequest, error } = await supabase
+        .from("join_requests")
+        .insert({ user_id: user.id, team_id: teamId, status: "pending" })
+        .select("id")
+        .single();
+      if (error) { Alert.alert("Error", error.message); return; }
+      setShowBrowseModal(false);
+      notify("join_request", newRequest.id, teamId);
+      Alert.alert("Request Sent", "Your request to join the team has been sent to the admin for approval.");
+    } finally {
+      setJoiningTeamId(null);
+    }
   };
 
   const handleRefresh = useCallback(() => { setRefreshing(true); loadData(); }, [loadData]);
@@ -175,7 +184,12 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
                   data={otherTeams}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.browseTeamCard} onPress={() => handleJoinTeam(item.id, item.name)} activeOpacity={0.8}>
+                    <TouchableOpacity
+                      style={styles.browseTeamCard}
+                      onPress={() => handleJoinTeam(item.id, item.name)}
+                      activeOpacity={0.8}
+                      disabled={joiningTeamId !== null}
+                    >
                       <View style={styles.browseTeamLeft}>
                         <View style={styles.browseTeamAvatar}>
                           <Text style={styles.browseTeamAvatarText}>{item.name.charAt(0).toUpperCase()}</Text>
@@ -184,7 +198,11 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
                           <Text style={styles.browseTeamName}>{item.name}</Text>
                         </View>
                       </View>
-                      <Text style={styles.browseJoinText}>Join</Text>
+                      {joiningTeamId === item.id ? (
+                        <ActivityIndicator size="small" color="#2563EB" />
+                      ) : (
+                        <Text style={styles.browseJoinText}>Join</Text>
+                      )}
                     </TouchableOpacity>
                   )}
                   contentContainerStyle={styles.browseListContent}
