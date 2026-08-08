@@ -53,35 +53,42 @@ export default function TaskHistory() {
 
   const fetchHistory = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, deadline, remarks, response_remark, created_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name)")
-      .eq("status", "done")
-      .order("created_at", { ascending: false });
-    if (error) { console.error("fetchHistory:", error.message); setLoading(false); return; }
-    const taskList = (data ?? []) as Task[];
-    setTasks(taskList);
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id, title, description, status, assigned_team_id, created_by, claimed_by, started_by, completed_at, deadline, remarks, response_remark, created_at, teams(name), claimed_by_member:members!claimed_by(full_name), started_by_member:members!started_by(full_name), created_by_member:members!created_by(full_name)")
+        .eq("status", "done")
+        .order("created_at", { ascending: false });
+      if (error) { console.error("fetchHistory:", error.message); return; }
+      const taskList = (data ?? []) as Task[];
+      setTasks(taskList);
 
-    const teamIds = [...new Set(taskList.map((t: Task) => t.assigned_team_id))];
-    if (teamIds.length > 0) {
-      const [{ data: teamData }, { data: assigneeData }] = await Promise.all([
-        supabase.from("team_members").select("member_id, team_id, members(email, full_name)").in("team_id", teamIds),
-        supabase.from("task_assignees").select("task_id, member_id").in("task_id", taskList.map((t: Task) => t.id)),
-      ]);
-      const membersByTeam: Record<string, TeamMember[]> = {};
-      for (const m of (teamData ?? []) as TeamMember[]) {
-        if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
-        membersByTeam[m.team_id].push(m);
+      const teamIds = [...new Set(taskList.map((t: Task) => t.assigned_team_id))];
+      if (teamIds.length > 0) {
+        const [{ data: teamData, error: teamErr }, { data: assigneeData, error: assigneeErr }] = await Promise.all([
+          supabase.from("team_members").select("member_id, team_id, members(email, full_name)").in("team_id", teamIds),
+          supabase.from("task_assignees").select("task_id, member_id").in("task_id", taskList.map((t: Task) => t.id)),
+        ]);
+        if (teamErr) console.error("fetchHistory team_members:", teamErr.message);
+        if (assigneeErr) console.error("fetchHistory task_assignees:", assigneeErr.message);
+        const membersByTeam: Record<string, TeamMember[]> = {};
+        for (const m of (teamData ?? []) as TeamMember[]) {
+          if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
+          membersByTeam[m.team_id].push(m);
+        }
+        setAllTeamMembers(membersByTeam);
+        const map: Record<string, string[]> = {};
+        for (const a of (assigneeData ?? []) as { task_id: string; member_id: string }[]) {
+          if (!map[a.task_id]) map[a.task_id] = [];
+          map[a.task_id].push(a.member_id);
+        }
+        setTaskAssigneesMap(map);
       }
-      setAllTeamMembers(membersByTeam);
-      const map: Record<string, string[]> = {};
-      for (const a of (assigneeData ?? []) as { task_id: string; member_id: string }[]) {
-        if (!map[a.task_id]) map[a.task_id] = [];
-        map[a.task_id].push(a.member_id);
-      }
-      setTaskAssigneesMap(map);
+    } catch (e: any) {
+      console.error("fetchHistory error:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchHistory(); }, []);
