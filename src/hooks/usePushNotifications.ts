@@ -68,7 +68,9 @@ export function usePushNotifications() {
 
 const FETCH_TIMEOUT = 15_000;
 
-export async function notify(type: "notice" | "update" | "task" | "join_request" | "request_approved" | "request_rejected", record_id: string, team_id?: string) {
+export type NotifyType = "notice" | "update" | "task" | "join_request" | "request_approved" | "request_rejected";
+
+export async function notify(type: NotifyType, record_id: string, team_id?: string) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) { console.log("notify: no session"); return; }
