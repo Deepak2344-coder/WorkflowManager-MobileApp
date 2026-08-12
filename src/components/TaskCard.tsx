@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
+import { formatDateTime } from "../lib/format";
 
 interface TaskCardProps {
   title: string;
@@ -59,7 +60,7 @@ const TaskCard = memo(function TaskCard({ title, description, status, teamName, 
         <Text style={styles.teamName} numberOfLines={1}>{teamName}</Text>
         {createdByName && <Text style={styles.createdBy}>Assigned by {createdByName}</Text>}
         {deadline && (
-          <Text style={styles.deadline}>Due {new Date(deadline).toLocaleDateString()} {new Date(deadline).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+          <Text style={styles.deadline}>Due {formatDateTime(deadline)}</Text>
         )}
         {responseRemark && status === "done" ? <Text style={styles.responseRemarkCard}>Completion note: {responseRemark}</Text> : null}
         {responseRemark && status === "rejected" ? <Text style={styles.responseRemarkCardRejected}>Rejection reason: {responseRemark}</Text> : null}
@@ -82,20 +83,20 @@ const TaskCard = memo(function TaskCard({ title, description, status, teamName, 
               <Text style={styles.detailTeam}>{teamName}</Text>
               {createdByName && <Text style={styles.detailCreatedBy}>Assigned by {createdByName}</Text>}
               {createdAt && (
-                <Text style={styles.detailDate}>Assigned {new Date(createdAt).toLocaleDateString()} {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                <Text style={styles.detailDate}>Assigned {formatDateTime(createdAt)}</Text>
               )}
               {deadline && (
-                <Text style={styles.detailDeadline}>Deadline: {new Date(deadline).toLocaleDateString()} {new Date(deadline).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                <Text style={styles.detailDeadline}>Deadline: {formatDateTime(deadline)}</Text>
               )}
-              {completedAt ? <Text style={styles.detailCompleted}>Completed {new Date(completedAt).toLocaleDateString()} {new Date(completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
+              {completedAt ? <Text style={styles.detailCompleted}>Completed {formatDateTime(completedAt)}</Text> : null}
               {assigneeNames && assigneeNames.length > 0 ? <Text style={styles.detailAssignees}>Assigned to: {assigneeNames.join(", ")}</Text> : null}
               {claimedByName ? <Text style={styles.detailClaimed}>Claimed by {claimedByName}</Text> : null}
-              {acceptedAt ? <Text style={styles.detailDate}>Accepted {new Date(acceptedAt).toLocaleDateString()} {new Date(acceptedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
+              {acceptedAt ? <Text style={styles.detailDate}>Accepted {formatDateTime(acceptedAt)}</Text> : null}
               {acceptedByName ? <Text style={styles.detailClaimed}>Accepted by {acceptedByName}</Text> : null}
               {startedByName && status !== "done" ? <Text style={styles.detailWorking}>Working on it: {startedByName}</Text> : null}
               {startedByName && status === "done" ? <Text style={styles.detailWorked}>Worked on by {startedByName}</Text> : null}
               {rejectedByName ? <Text style={styles.detailRejected}>Rejected by {rejectedByName}</Text> : null}
-              {rejectedAt ? <Text style={styles.detailDate}>Rejected {new Date(rejectedAt).toLocaleDateString()} {new Date(rejectedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text> : null}
+              {rejectedAt ? <Text style={styles.detailDate}>Rejected {formatDateTime(rejectedAt)}</Text> : null}
               {description ? <Text style={styles.detailSectionLabel}>Description</Text> : null}
               {description ? <Text style={styles.detailText}>{description}</Text> : null}
               {remarks ? <Text style={styles.detailSectionLabel}>Remarks</Text> : null}
