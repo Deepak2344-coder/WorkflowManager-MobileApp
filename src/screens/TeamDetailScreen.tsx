@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, FlatList, TextInput } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase, deleteUpdate } from "../lib/supabase";
+import { formatDateTime } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
@@ -166,11 +167,7 @@ export default function TeamDetailScreen() {
     ]);
   };
 
-  const formatTime = (iso: string | null) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+  const formatTime = (iso: string | null) => formatDateTime(iso);
 
   const fetchTeamAdmin = async () => {
     const { data, error } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();

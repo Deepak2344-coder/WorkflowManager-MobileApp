@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { View, FlatList, Text, StyleSheet, RefreshControl, Alert, TouchableOpacity, Modal, TextInput, ScrollView, Platform } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { supabase, deleteUpdate } from "../lib/supabase";
+import { formatDateTime } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import TaskCard from "../components/TaskCard";
@@ -89,11 +90,7 @@ export default function TeamTaskDetailScreen() {
   const [selectedUpdate, setSelectedUpdate] = useState<(TaskUpdate & { timeStr: string }) | null>(null);
   const [teamAdminId, setTeamAdminId] = useState<string | null>(null);
 
-  const formatTime = (iso: string | null) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+  const formatTime = (iso: string | null) => formatDateTime(iso);
 
   const filteredTasks = useMemo(() => {
     let list = tasks;
