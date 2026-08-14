@@ -218,9 +218,7 @@ export default function TeamTaskDetailScreen() {
     setAssignDeadline(newDate);
   };
 
-  const formatDeadline = (d: Date) => {
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+  const formatDeadline = (d: Date) => formatDateTime(d.toISOString());
 
   const reassignTask = async (taskId: string) => {
     if (!user?.id) return;
