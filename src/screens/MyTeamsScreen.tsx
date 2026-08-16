@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useFocusEffect } from "@react-navigation/native";
 import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
 
@@ -77,7 +78,11 @@ export default function MyTeamsScreen({ navigation }: { navigation: any }) {
     }
   }, [fetchMyTeams, fetchAllTeams, computeOtherTeams]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const handleJoinTeam = async (teamId: string, teamName: string) => {
     if (!user?.id) return Alert.alert("Error", "Not authenticated");
