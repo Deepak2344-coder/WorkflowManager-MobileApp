@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, Modal, TextInput, Alert, ScrollView } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useProfile } from "../hooks/useProfile";
 import { useAuth } from "../context/AuthContext";
 import { supabase, deleteNotice } from "../lib/supabase";
@@ -70,7 +71,12 @@ export default function Dashboard() {
     setFetchingNotices(false);
   };
 
-  useEffect(() => { fetchNotices(); fetchJoinRequests(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotices();
+      fetchJoinRequests();
+    }, [user?.id])
+  );
 
   const fetchJoinRequests = async () => {
     if (!user?.id) return;
