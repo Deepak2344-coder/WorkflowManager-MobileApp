@@ -1,5 +1,6 @@
 import { View, FlatList, Text, StyleSheet, RefreshControl, ActivityIndicator } from "react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import TaskCard from "../components/TaskCard";
 import SearchFilterBar from "../components/SearchFilterBar";
@@ -91,7 +92,11 @@ export default function TaskHistory() {
     }
   };
 
-  useEffect(() => { fetchHistory(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistory();
+    }, [])
+  );
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
 
