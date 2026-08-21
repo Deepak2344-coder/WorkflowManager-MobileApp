@@ -14,6 +14,12 @@ export default function HamburgerMenu() {
   const [teamName, setTeamName] = useState("");
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmLabel, setConfirmLabel] = useState("Confirm");
+  const [confirmAction, setConfirmAction] = useState<(() => Promise<void>) | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const changeUsername = async () => {
     if (!newName.trim() || !user?.id) return Alert.alert("Error", "Enter a name");
@@ -39,27 +45,35 @@ export default function HamburgerMenu() {
 
   const handleSignOut = () => {
     setVisible(false);
-    Alert.alert("Sign Out", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => supabase.auth.signOut() },
-    ]);
+    setConfirmTitle("Sign Out");
+    setConfirmMessage("Are you sure you want to sign out?");
+    setConfirmLabel("Sign Out");
+    setConfirmAction(() => async () => { await supabase.auth.signOut(); });
+    setConfirmVisible(true);
   };
 
   const handleDeleteAccount = () => {
     setVisible(false);
-    Alert.alert("Delete Account", `This will permanently delete ${user?.email || "this account"} and all associated data. This cannot be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete Permanently", style: "destructive",
-        onPress: async () => {
-          if (!user?.id) return;
-          setDeleting(true);
-          const { error } = await deleteAuthUser(user.id);
-          if (error) { setDeleting(false); return Alert.alert("Error", error); }
-          supabase.auth.signOut();
-        },
-      },
-    ]);
+    setConfirmTitle("Delete Account");
+    setConfirmMessage(`This will permanently delete ${user?.email || "this account"} and all associated data. This cannot be undone.`);
+    setConfirmLabel("Delete Permanently");
+    setConfirmAction(() => async () => {
+      if (!user?.id) return;
+      setDeleting(true);
+      const { error } = await deleteAuthUser(user.id);
+      if (error) { setDeleting(false); Alert.alert("Error", error); return; }
+      supabase.auth.signOut();
+    });
+    setConfirmVisible(true);
+  };
+
+  const runConfirm = async () => {
+    if (!confirmAction) return;
+    setConfirming(true);
+    await confirmAction();
+    setConfirming(false);
+    setConfirmVisible(false);
+    setConfirmAction(null);
   };
 
   const close = () => { setVisible(false); setView("menu"); Keyboard.dismiss(); };
@@ -160,6 +174,23 @@ export default function HamburgerMenu() {
             )}
           </ScrollView>
       </Modal>
+
+      <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setConfirmVisible(false)}>
+          <View style={styles.confirmCard} onStartShouldSetResponder={() => true}>
+            <Text style={styles.confirmTitle}>{confirmTitle}</Text>
+            <Text style={styles.confirmMessage}>{confirmMessage}</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancelBtn} onPress={() => setConfirmVisible(false)}>
+                <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmActionBtn} onPress={runConfirm} disabled={confirming}>
+                {confirming ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmActionBtnText}>{confirmLabel}</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -210,4 +241,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#DBEAFE", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10,
     fontSize: 13, color: "#2563EB", fontWeight: "600", overflow: "hidden", marginBottom: 4,
   },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
+  confirmCard: { backgroundColor: "#fff", borderRadius: 16, padding: 24, maxWidth: 400, alignSelf: "center", width: "100%" },
+  confirmTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 12 },
+  confirmMessage: { fontSize: 15, color: "#6B7280", lineHeight: 22, marginBottom: 20 },
+  confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+  confirmCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: "#D1D5DB" },
+  confirmCancelBtnText: { fontSize: 15, color: "#374151", fontWeight: "600" },
+  confirmActionBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#DC2626", minWidth: 100, alignItems: "center" },
+  confirmActionBtnText: { fontSize: 15, color: "#fff", fontWeight: "700" },
 });
