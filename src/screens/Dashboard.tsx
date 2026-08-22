@@ -5,6 +5,7 @@ import { useProfile } from "../hooks/useProfile";
 import { useAuth } from "../context/AuthContext";
 import { supabase, deleteNotice } from "../lib/supabase";
 import Button from "../components/Button";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { notify } from "../hooks/usePushNotifications";
 import SearchFilterBar from "../components/SearchFilterBar";
 
@@ -43,6 +44,9 @@ export default function Dashboard() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [deleteNoticeVisible, setDeleteNoticeVisible] = useState(false);
+  const [deleteNoticeId, setDeleteNoticeId] = useState<string | null>(null);
+  const [deletingNotice, setDeletingNotice] = useState(false);
 
   const filteredNotices = useMemo(() => {
     let list = notices;
@@ -135,15 +139,20 @@ export default function Dashboard() {
   };
 
   const confirmDeleteNotice = (noticeId: string) => {
-    Alert.alert("Delete Notice", "Are you sure you want to delete this notice?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-        const { error } = await deleteNotice(noticeId);
-        if (error) return Alert.alert("Error", error);
-        setSelectedNotice(null);
-        fetchNotices();
-      }},
-    ]);
+    setDeleteNoticeId(noticeId);
+    setDeleteNoticeVisible(true);
+  };
+
+  const runDeleteNotice = async () => {
+    if (!deleteNoticeId) return;
+    setDeletingNotice(true);
+    const { error } = await deleteNotice(deleteNoticeId);
+    setDeletingNotice(false);
+    if (error) { Alert.alert("Error", error); return; }
+    setSelectedNotice(null);
+    setDeleteNoticeVisible(false);
+    setDeleteNoticeId(null);
+    fetchNotices();
   };
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
@@ -270,6 +279,16 @@ export default function Dashboard() {
           </View>
         </ScrollView>
       </Modal>
+
+      <ConfirmDialog
+        visible={deleteNoticeVisible}
+        title="Delete Notice"
+        message="Are you sure you want to delete this notice?"
+        confirmLabel="Delete"
+        loading={deletingNotice}
+        onConfirm={runDeleteNotice}
+        onCancel={() => { setDeleteNoticeVisible(false); setDeleteNoticeId(null); }}
+      />
     </View>
   );
 }
