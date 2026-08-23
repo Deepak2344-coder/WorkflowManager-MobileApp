@@ -6,6 +6,7 @@ import { formatDateTime } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { notify } from "../hooks/usePushNotifications";
 import Button from "../components/Button";
+import ConfirmDialog from "../components/ConfirmDialog";
 import TaskCard from "../components/TaskCard";
 import SearchFilterBar from "../components/SearchFilterBar";
 
@@ -88,6 +89,11 @@ export default function TeamDetailScreen() {
   const [teamAdminId, setTeamAdminId] = useState<string | null>(null);
   const [showMemberActionModal, setShowMemberActionModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [confirmDeleteUpdateVisible, setConfirmDeleteUpdateVisible] = useState(false);
+  const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState<string | null>(null);
+  const [deletingUpdate, setDeletingUpdate] = useState(false);
+  const [confirmLeaveVisible, setConfirmLeaveVisible] = useState(false);
+  const [leavingConfirm, setLeavingConfirm] = useState(false);
 
   const filteredUpdates = useMemo(() => {
     let list = updates;
@@ -157,14 +163,19 @@ export default function TeamDetailScreen() {
   };
 
   const confirmDeleteUpdate = (updateId: string) => {
-    Alert.alert("Delete Update", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-        const { error } = await deleteUpdate(updateId);
-        if (error) return Alert.alert("Error", error);
-        fetchUpdates();
-      }},
-    ]);
+    setConfirmDeleteUpdateId(updateId);
+    setConfirmDeleteUpdateVisible(true);
+  };
+
+  const runDeleteUpdate = async () => {
+    if (!confirmDeleteUpdateId) return;
+    setDeletingUpdate(true);
+    const { error } = await deleteUpdate(confirmDeleteUpdateId);
+    setDeletingUpdate(false);
+    if (error) { Alert.alert("Error", error); return; }
+    setConfirmDeleteUpdateVisible(false);
+    setConfirmDeleteUpdateId(null);
+    fetchUpdates();
   };
 
   const formatTime = (iso: string | null) => formatDateTime(iso);
@@ -247,27 +258,24 @@ export default function TeamDetailScreen() {
   };
 
   const handleLeaveTeam = async () => {
-    Alert.alert("Leave Team", `Are you sure you want to leave "${teamName}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Leave", style: "destructive",
-        onPress: async () => {
-          if (!user?.id) return;
-          setLeaving(true);
-          if (isAdmin) {
-            await supabase.from("teams").update({ admin_id: null }).eq("id", teamId);
-          }
-          const { error } = await supabase
-            .from("team_members")
-            .delete()
-            .eq("team_id", teamId)
-            .eq("member_id", user.id);
-          setLeaving(false);
-          if (error) return Alert.alert("Error", error.message);
-          navigation.goBack();
-        },
-      },
-    ]);
+    setConfirmLeaveVisible(true);
+  };
+
+  const runLeaveTeam = async () => {
+    if (!user?.id) return;
+    setLeavingConfirm(true);
+    if (isAdmin) {
+      await supabase.from("teams").update({ admin_id: null }).eq("id", teamId);
+    }
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", teamId)
+      .eq("member_id", user.id);
+    setLeavingConfirm(false);
+    setConfirmLeaveVisible(false);
+    if (error) { Alert.alert("Error", error.message); return; }
+    navigation.goBack();
   };
 
   const closeInfoModal = () => setShowInfoModal(false);
@@ -666,6 +674,26 @@ export default function TeamDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmDeleteUpdateVisible}
+        title="Delete Update"
+        message="Are you sure you want to delete this update?"
+        confirmLabel="Delete"
+        loading={deletingUpdate}
+        onConfirm={runDeleteUpdate}
+        onCancel={() => { setConfirmDeleteUpdateVisible(false); setConfirmDeleteUpdateId(null); }}
+      />
+
+      <ConfirmDialog
+        visible={confirmLeaveVisible}
+        title="Leave Team"
+        message={`Are you sure you want to leave "${teamName}"?`}
+        confirmLabel="Leave"
+        loading={leavingConfirm}
+        onConfirm={runLeaveTeam}
+        onCancel={() => setConfirmLeaveVisible(false)}
+      />
     </View>
   );
 }
