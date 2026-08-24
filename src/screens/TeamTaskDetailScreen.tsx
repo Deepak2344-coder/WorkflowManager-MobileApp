@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import TaskCard from "../components/TaskCard";
 import Button from "../components/Button";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { notify } from "../hooks/usePushNotifications";
 import SearchFilterBar from "../components/SearchFilterBar";
 
@@ -89,6 +90,9 @@ export default function TeamTaskDetailScreen() {
   const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<(TaskUpdate & { timeStr: string }) | null>(null);
   const [teamAdminId, setTeamAdminId] = useState<string | null>(null);
+  const [confirmDeleteUpdateVisible, setConfirmDeleteUpdateVisible] = useState(false);
+  const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState<string | null>(null);
+  const [deletingUpdate, setDeletingUpdate] = useState(false);
 
   const formatTime = (iso: string | null) => formatDateTime(iso);
 
@@ -263,14 +267,19 @@ export default function TeamTaskDetailScreen() {
   };
 
   const confirmDeleteUpdate = (updateId: string) => {
-    Alert.alert("Delete Update", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-        const { error } = await deleteUpdate(updateId);
-        if (error) return Alert.alert("Error", error);
-        fetchUpdates();
-      }},
-    ]);
+    setConfirmDeleteUpdateId(updateId);
+    setConfirmDeleteUpdateVisible(true);
+  };
+
+  const runDeleteUpdate = async () => {
+    if (!confirmDeleteUpdateId) return;
+    setDeletingUpdate(true);
+    const { error } = await deleteUpdate(confirmDeleteUpdateId);
+    setDeletingUpdate(false);
+    if (error) { Alert.alert("Error", error); return; }
+    setConfirmDeleteUpdateVisible(false);
+    setConfirmDeleteUpdateId(null);
+    fetchUpdates();
   };
 
   const unseenTasks = tasks.filter(t => t.status !== "done" && !viewedTaskIds.has(t.id)).length;
@@ -454,6 +463,16 @@ export default function TeamTaskDetailScreen() {
           </View>
         </ScrollView>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmDeleteUpdateVisible}
+        title="Delete Update"
+        message="Are you sure you want to delete this update?"
+        confirmLabel="Delete"
+        loading={deletingUpdate}
+        onConfirm={runDeleteUpdate}
+        onCancel={() => { setConfirmDeleteUpdateVisible(false); setConfirmDeleteUpdateId(null); }}
+      />
     </View>
   );
 }
