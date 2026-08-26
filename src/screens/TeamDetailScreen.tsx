@@ -62,7 +62,6 @@ export default function TeamDetailScreen() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
 
@@ -541,7 +540,7 @@ export default function TeamDetailScreen() {
               )}
 
               <View style={styles.modalFooter}>
-                <Button title="Exit Group" onPress={handleLeaveTeam} variant="danger" loading={leaving} fullWidth />
+                <Button title="Exit Group" onPress={handleLeaveTeam} variant="danger" loading={leavingConfirm} fullWidth />
               </View>
             </View>
           </View>
