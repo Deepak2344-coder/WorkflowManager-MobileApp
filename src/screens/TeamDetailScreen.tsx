@@ -402,6 +402,7 @@ export default function TeamDetailScreen() {
               <FlatList
                 data={filteredUpdates}
                 keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {
                   const isOwner = user?.id === item.posted_by;
                   return (

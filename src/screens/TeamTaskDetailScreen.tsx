@@ -326,6 +326,7 @@ export default function TeamTaskDetailScreen() {
           <FlatList
             data={filteredTasks.filter(t => t.status !== "done")}
             keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
               const isTaskCreator = user?.id === item.created_by;
               return (
@@ -346,6 +347,7 @@ export default function TeamTaskDetailScreen() {
           <FlatList
             data={filteredTasks.filter(t => t.status === "done")}
             keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <TaskCard title={item.title} description={item.description} status={item.status} teamName={teamName} remarks={item.remarks} responseRemark={item.response_remark} deadline={item.deadline} claimedByName={(item as any).claimed_by_member?.full_name} createdByName={(item as any).created_by_member?.full_name} startedByName={(item as any).started_by_member?.[0]?.full_name} completedAt={item.completed_at} createdAt={item.created_at} acceptedAt={item.accepted_at} rejectedBy={item.rejected_by} rejectedByName={(item as any).rejected_by_member?.full_name} rejectedAt={item.rejected_at} assigneeNames={(() => { const ids = taskAssigneesMap[item.id]; if (!ids) return undefined; return ids.map((mid: string) => teamMembers.find((m) => m.member_id === mid)?.members?.full_name || mid).filter(Boolean); })()} />
             )}
@@ -389,6 +391,7 @@ export default function TeamTaskDetailScreen() {
           <FlatList
             data={filteredUpdates}
             keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
               const isOwner = user?.id === item.posted_by;
               return (
