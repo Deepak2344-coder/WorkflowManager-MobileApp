@@ -83,6 +83,9 @@ serve(async (req) => {
     }
 
     if (action === "remove_member") {
+      const { data: team } = await supabase.from("teams").select("admin_id").eq("id", payload.teamId).single();
+      if (!team || team.admin_id !== user.id) return textResponse("forbidden", 403);
+      if (payload.memberId === user.id) return textResponse("cannot remove yourself", 400);
       await supabase.from("team_members").delete()
         .eq("member_id", payload.memberId)
         .eq("team_id", payload.teamId);
@@ -90,9 +93,16 @@ serve(async (req) => {
     }
 
     if (action === "clear_all_tasks") {
-      await supabase.from("task_assignees").delete().neq("task_id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("task_updates").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (!payload.teamId) return textResponse("teamId required", 400);
+      const { data: team } = await supabase.from("teams").select("admin_id").eq("id", payload.teamId).single();
+      if (!team || team.admin_id !== user.id) return textResponse("forbidden", 403);
+      const { data: tasks } = await supabase.from("tasks").select("id").eq("assigned_team_id", payload.teamId);
+      const taskIds = (tasks ?? []).map((t: any) => t.id);
+      if (taskIds.length > 0) {
+        await supabase.from("task_assignees").delete().in("task_id", taskIds);
+        await supabase.from("task_updates").delete().in("task_id", taskIds);
+        await supabase.from("tasks").delete().in("id", taskIds);
+      }
       return jsonResponse({ ok: true }, 200);
     }
 
@@ -114,6 +124,8 @@ serve(async (req) => {
 
     if (action === "delete_team") {
       const teamId = payload.teamId as string;
+      const { data: team } = await supabase.from("teams").select("admin_id").eq("id", teamId).single();
+      if (!team || team.admin_id !== user.id) return textResponse("forbidden", 403);
       const { data: tasks } = await supabase.from("tasks").select("id").eq("assigned_team_id", teamId);
       const taskIds = (tasks ?? []).map((t: any) => t.id);
       if (taskIds.length > 0) {

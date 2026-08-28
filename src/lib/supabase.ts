@@ -55,10 +55,6 @@ export async function removeTeamMember(memberId: string, teamId: string): Promis
   return callAdmin("remove_member", { memberId, teamId });
 }
 
-export async function clearAllTasks(): Promise<{ error?: string }> {
-  return callAdmin("clear_all_tasks", {});
-}
-
 export async function deleteNotice(noticeId: string): Promise<{ error?: string }> {
   return callAdmin("delete_notice", { noticeId });
 }
